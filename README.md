@@ -23,7 +23,7 @@ Element positions are fixed; focal lengths are freely adjustable (positive only)
 |---|---:|---:|
 | Source (point) | 0 | -- |
 | C1 | 100 | 100 |
-| VOA aperture | 200 | r = 1.6 mm |
+| VOA aperture | 200 | r = 0.4 mm |
 | C2 | 300 | 100 |
 | C3 | 450 | 50 |
 | OL1 | 600 | 40 |
@@ -47,9 +47,9 @@ At the defaults:
 * PL2 and PL3 are off
 * sample to EELS focal plane magnification **5.0x**
 * camera length at the EELS aperture **40 mm** (a radian is dimensionless, so r = L*theta
-  gives a length; with 20 mrad that puts the direct beam at 0.8 mm radius, which is exactly
+  gives a length; at 5 mrad that puts the direct beam at 0.2 mm radius, which is exactly
   the beam radius printed under the EELS aperture label)
-* convergence semi-angle **alpha = 20 mrad**, set by C2 + C3 (see below)
+* convergence semi-angle **alpha = 5 mrad**, set by C2 + C3 against the fixed aperture
 
 The numbers are round because the structure is physically natural: C1 collimates the
 source (so the VOA sits at C1's back focal plane), C2 and C3 relay and re-collimate,
@@ -78,7 +78,7 @@ focal length in mm on top, and below it a vertical **slider logarithmic in focal
 dial, with a dedicated **off** (1/f = 0) at the bottom of travel. Up is stronger. Sample defocus is
 the horizontal slider under the Sample label, and the alpha slider sits at the top of the Actions
 panel. Everything in the
-**Display** panel is cosmetic and changes no computed value. The VOA is fixed at 1.60 mm radius.
+**Display** panel is cosmetic and changes no computed value. The VOA is fixed at 0.40 mm radius.
 Under every element label is the **primary beam radius** at that plane, and the readout sits
 underneath the figure in four groups.
 
@@ -91,8 +91,8 @@ The action buttons:
 
 | button | solves | for |
 |---|---|---|
-| Focus probe on sample | C2 + C3 | crossover at the reference plane, at the chosen alpha (alpha = 20 gives C2 100, C3 50) |
-| Collimate probe on sample | C2 + C3 | axial slope zero there, at the chosen alpha (alpha = 7.2727 gives C2 100, C3 34.375) |
+| Focus probe on sample | C2 + C3 | crossover at the reference plane, at the chosen alpha (alpha = 5 gives C2 100, C3 50) |
+| Collimate probe on sample | C2 + C3 | axial slope zero there, at the chosen alpha (alpha = 20/11 gives C2 100, C3 34.375) |
 | Match EELS planes | three projector lenses at a time, four if needed | either coupling regime, selected by the toggle above it |
 
 ### Reference plane vs specimen
@@ -105,7 +105,7 @@ specimen, the probe-defocus readout, and the marker drawn on the figure.
 
 So nothing optical moves when you sweep `dz` -- verified, the EELS solve returns identical
 PL1/PL4/EL at dz = 0 and +/- 1 mm. What changes is that the probe is no longer focused *on the
-specimen*: the beam there grows as alpha * |dz|, 16 um at dz = 0.8 mm and alpha = 20 mrad.
+specimen*: the beam there grows as alpha * |dz|, 4 um at dz = 0.8 mm and alpha = 5 mrad.
 
 The `dz` knob spans +/- 1 mm, enough for a confocal depth series.
 
@@ -117,13 +117,16 @@ One definition covers both illumination modes:
 
 Focused, that is the ordinary convergence semi-angle. Parallel, it is the angle OL2 focuses the
 illumination to, and the illuminated radius is exactly `r = alpha * f_OL2`, so smaller alpha means a
-narrower beam. At the defaults it reads 20 mrad focused and 7.2727 mrad collimated.
+narrower beam. At the defaults it reads 5 mrad focused; collimating without touching alpha keeps
+it at 5 mrad and widens the illuminated spot to alpha * f_OL2 = 0.2 mm.
 
 The alpha slider is logarithmic over **0.55 - 50 mrad** and applies **live**, preserving whichever
 mode you last chose with Focus or Collimate. **C2 and C3 set it**, solving both conditions at once
-(mode plus angle) in closed form -- the VOA stays fixed at 1.6 mm. The focused floor is 0.54 mrad
-with f >= 2 mm; below that the solve refuses and says so, because 0.1 mrad would need f_C3 ~ 0.37 mm,
-which is not a physical lens. On a real column you would change the aperture for that regime.
+(mode plus angle) in closed form -- the VOA stays fixed at 0.4 mm. With that aperture the focused
+floor is 0.137 mrad, comfortably below the slider's 0.55 mrad minimum, so every slider position
+solves. (At the 1.6 mm aperture this tool shipped with originally the floor was 0.549 mrad, right at
+the bottom of the slider -- shrinking the aperture is exactly how you reach smaller angles on a real
+column, which is why alpha = 5 mrad is set that way here rather than by straining the condensers.)
 
 The two coupling regimes each necessarily give up the other, so the readout names **which kind** of
 plane sits where -- a green tick for the kind the current regime wants, a circle for the other kind,
@@ -279,6 +282,18 @@ The tool is by Sean Kung (<sean.kung@ubc.ca>) and is **MIT** licensed -- see `LI
 Unlike the other calculators on seankung.ca this one is not a single self-contained file: there is
 no build step, but there is one vendored dependency. `vendor/rayOptics.js` is the Ray Optics
 Simulation core engine, version 5.4+20260807.c5bf2e2, taken verbatim and unmodified from the
-project's `dist-integrations` branch and used under the **Apache License 2.0** -- see `NOTICE`.
-It is committed rather than fetched from a CDN so the page works offline and the engine version
-stays pinned.
+project's `dist-integrations` branch and used under the **Apache License 2.0**. It is committed
+rather than fetched from a CDN so the page works offline and the engine version stays pinned.
+
+Apache-2.0 is permissive rather than copyleft: it explicitly permits redistribution, including
+publicly and in a work whose own code is MIT, and it does not require this project to adopt the
+Apache licence. What it does require is attribution, so travelling with the bundle are:
+
+- `vendor/LICENSE` -- upstream's licence file verbatim. It is the complete Apache-2.0 text, which
+  section 4(a) requires be given to recipients, **plus** a `THIRD-PARTY LICENSES` block.
+- That block carries the MIT notices for **decimal.js v10.4.3** and **escape-html**, which webpack
+  compiled into the bundle. The bundle's banner points at a `rayOptics.js.LICENSE.txt` sidecar that
+  upstream does not publish on this branch; those notices live in `vendor/LICENSE` instead.
+- `NOTICE` -- the summary of all of the above.
+
+Nothing here is legal advice, but the obligations are the plain reading of the licence text.

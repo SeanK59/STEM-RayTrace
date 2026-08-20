@@ -164,7 +164,7 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   planes instead, which is why they cannot be used to classify planes.
   <br><br>
   <b>The number under each label</b> is the primary beam <b>radius</b> at that plane. The VOA is fixed at
-  <b>1.60&nbsp;mm</b> radius, which is what sets the convergence semi-angle (&alpha; = r/80 here), the probe size, and
+  <b>0.40&nbsp;mm</b> radius, which together with C2 and C3 sets the convergence semi-angle, the probe size, and
   which rays are physically blocked.
   <br><br>
   <b>Lens sliders are logarithmic in focal length</b>, spanning 10000&nbsp;mm down to the 2&nbsp;mm strength limit at
@@ -195,9 +195,10 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   f<sub>OL2</sub></b>, the slope OL2 imparts to the marginal ray. Focused, that is the usual convergence semi-angle;
   parallel, it is the angle OL2 focuses the illumination to, and the illuminated radius is exactly
   <b>r&nbsp;=&nbsp;&alpha;&thinsp;f<sub>OL2</sub></b>. The &alpha; slider spans 0.55&ndash;50&nbsp;mrad and applies
-  live, keeping whichever mode you last chose; the VOA stays fixed at 1.60&nbsp;mm. Below about 0.54&nbsp;mrad focused
-  the solve refuses, because 0.1&nbsp;mrad would need f<sub>C3</sub>&nbsp;&asymp;&nbsp;0.37&nbsp;mm &mdash; not a
-  physical lens. On a real column you would change the aperture for that.
+  live, keeping whichever mode you last chose; the VOA stays fixed at 0.40&nbsp;mm. Below about 0.14&nbsp;mrad focused
+  the solve refuses. The slider bottoms out at 0.55&nbsp;mrad, comfortably above that floor, so every position
+  solves. Shrinking the aperture is what buys smaller angles on a real column, which is why the 5&nbsp;mrad
+  default is set that way rather than by straining the condensers.
   <br><br>
   <b>The two EELS coupling modes</b> are exact mirrors of one another, and mutually exclusive:
   <i>diffraction-coupled</i> puts the diffraction pattern on the entrance aperture and the sample image on the EELS
@@ -247,7 +248,7 @@ const RO = module.exports;
 const COLUMN = [
   { id:'SRC', label:'Source',     z:    0, kind:'source' },
   { id:'C1',  label:'C1',         z:  100, kind:'lens',     f: 100 },
-  { id:'VOA', label:'VOA',        z:  200, kind:'aperture', r: 1.6 },
+  { id:'VOA', label:'VOA',        z:  200, kind:'aperture', r: 0.4 },
   { id:'C2',  label:'C2',         z:  300, kind:'lens',     f: 100 },
   { id:'C3',  label:'C3',         z:  450, kind:'lens',     f:  50 },
   { id:'OL1', label:'OL1',        z:  600, kind:'lens',     f:  40 },
@@ -309,7 +310,7 @@ const state = {
   thetaB   : 10,             // mrad
   coupling : 'diff',         // 'diff' | 'img'  -- the two EELS coupling regimes
   holdEL   : true,           // keep the EELS lens fixed; solve with PL1-PL4 only
-  alpha    : 20,             // convergence semi-angle, mrad -- set by C2 + C3
+  alpha    : 5,              // convergence semi-angle, mrad -- set by C2 + C3
   illumMode: 'focus',        // 'focus' | 'collimate' -- what the alpha slider preserves
   targetL  : 40,             // diffraction-coupled: camera length at the EELS aperture, mm
   targetM  : 10,             // image-coupled: magnification at the EELS aperture
@@ -885,7 +886,7 @@ const LABEL_POS = {};
  *  ray for an on-axis point source, so the outermost surviving ray sets the extent. */
 const beamRadius = (r, z) => Math.abs(r.a.at(z).y) * r.u0max;
 
-/** 1.60 mm / 291 um / 0 */
+/** 1.60 mm / 291 um / 0 -- adaptive units for the per-plane beam radii */
 function fmtLen(mm) {
   if (!isFinite(mm)) return '--';
   if (mm >= 1)      return mm.toFixed(2) + ' mm';
@@ -1196,7 +1197,7 @@ function buildControls() {
     state.targetL = 40; state.targetM = 10; state.coupling = 'diff'; state.sampleDz = 0;
     state.holdEL = true;  el$('cbHoldEL').checked = true;
     state.showDiff = true; el$('cbDiff').checked = true;
-    state.alpha = 20; state.illumMode = 'focus';
+    state.alpha = 5;  state.illumMode = 'focus';
     flash(null); fitK(); refresh();
   });
 }
@@ -1433,7 +1434,7 @@ function selftest() {
 
   for (const e of LENSES) state.power[e.id] = 1 / e.f;
   state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.coupling = 'diff';
-  state.alpha = 20; state.illumMode = 'focus'; state.holdEL = false;
+  state.alpha = 5;  state.illumMode = 'focus'; state.holdEL = false;
   state.thetaB = 10; state.showDiff = true;
   state.targetL = 40; state.targetM = 10;
   const r = analyse();
@@ -1447,7 +1448,7 @@ function selftest() {
   chk('camL = f_OL2 * M(720->1300)',
       40 * Math.abs(traceFrom(720, 1, 0, Z_MAX).at(Z_EAP).y /
                     traceFrom(720, 1, 0, Z_MAX).at(720).y), 40, 1e-9);
-  chk('convergence (mrad)',      r.alpha * 1000,        20,    1e-9);
+  chk('convergence (mrad)',      r.alpha * 1000,         5,    1e-9);
   chk('probe radius (um)',       r.probeR,              0,     1e-12);
   chk('sample conjugate',        r.chk.SMP.ok ? 1 : 0,  1,     0);
   chk('EELS ap. = diff plane',   r.chk.EAP.ok ? 1 : 0,  1,     0);
@@ -1461,23 +1462,23 @@ function selftest() {
   state.K = kSave;
 
   // --- per-plane beam radius (mm) ---
-  chk('beam radius at VOA',  beamRadius(r, Z_VOA), 1.6, 1e-12);
-  chk('beam radius at EAP',  beamRadius(r, Z_EAP), 0.8, 1e-12);
+  chk('beam radius at VOA',  beamRadius(r, Z_VOA), 0.4, 1e-12);   // the aperture itself
+  chk('beam radius at EAP',  beamRadius(r, Z_EAP), 0.2, 1e-12);   // = camL * alpha = 40 * 5e-3
   chk('beam radius at SMP',  beamRadius(r, Z_SMP), 0,   1e-12);
-  chk('beam radius at PL4',  beamRadius(r, BY_ID.PL4.z), 1.2, 1e-12);
+  chk('beam radius at PL4',  beamRadius(r, BY_ID.PL4.z), 0.3, 1e-12);
   chk('camera length = radius/alpha', beamRadius(r, Z_EAP) / r.alpha, r.camEAP, 1e-9);
 
   // --- focus the probe with C3 (was OL1) ---
   const restore = () => { for (const e of LENSES) state.power[e.id] = 1 / e.f;
                           state.holdEL = false; state.sampleDz = 0;
-                          state.alpha = 20; state.illumMode = 'focus'; };
+                          state.alpha = 5;  state.illumMode = 'focus'; };
   restore();
   state.power.C2 = 1 / 61; state.power.C3 = 1 / 61;   // detune both, then solve back
   const fRes = focusProbeOnSample();
   chk('focus: banner ok',   fRes[0] === 'ok' ? 1 : 0,  1, 0);
   chk('focus: f_C2 (mm)',   1 / state.power.C2,      100, 1e-9);
   chk('focus: f_C3 (mm)',   1 / state.power.C3,       50, 1e-9);
-  chk('focus: alpha (mrad)', analyse().alpha * 1000,  20, 1e-9);
+  chk('focus: alpha (mrad)', analyse().alpha * 1000,   5, 1e-9);
   chk('focus: OL1 untouched', 1 / state.power.OL1,    40, 1e-12);
 
   // alpha round-trips through the C2 + C3 solve in both modes
@@ -1492,16 +1493,17 @@ function selftest() {
 
   // --- collimate: C2 + C3 set the mode AND alpha together ---
   // at the default alpha = 20 the spot is alpha * f_OL2 = 0.8 mm; the old 34.375 mm C3
-  // corresponds to alpha = 7.2727 mrad, so assert that case explicitly
+  // corresponds to alpha = 20/11 mrad at this aperture, so assert that case explicitly
   restore(); state.alpha = 20;
   const c20 = collimateOnSample(), r20 = analyse();
   chk('collimate a=20: banner ok', c20[0] === 'ok' ? 1 : 0, 1, 0);
   chk('collimate a=20: alpha',     r20.alpha * 1000, 20, 1e-9);
   chk('collimate a=20: r = a*fOL2', Math.abs(r20.yRef) * r20.u0max, 0.8, 1e-9);
-  chk('collimate a=20: C2 (mm)',   1 / state.power.C2, 63.157894736, 1e-6);
-  chk('collimate a=20: C3 (mm)',   1 / state.power.C3, 48.529411764, 1e-6);
+  chk('collimate a=20: C2 (mm)',   1 / state.power.C2, 15000 / 650,  1e-6);
+  chk('collimate a=20: C3 (mm)',   1 / state.power.C3, 550 / 9.33333333333, 1e-5);
 
-  restore(); state.alpha = 200 / 27.5;                 // 7.2727... mrad
+  restore(); state.alpha = 20 / 11;                    // 1.8182 mrad: the alpha that
+                                                       // leaves C2/C3 round at this aperture
   const cRes = collimateOnSample(), rc = analyse();
   chk('collimate: banner ok',    cRes[0] === 'ok' ? 1 : 0,           1, 0);
   chk('collimate: C2 (mm)',      1 / state.power.C2,               100, 1e-6);
@@ -1512,7 +1514,7 @@ function selftest() {
   chk('collimate: flagged parallel', rc.collimated ? 1 : 0,          1, 0);
   chk('collimate: sample state',
       planeState('SMP', rc.chk.SMP).kind === 'alt' ? 1 : 0, 1, 0);
-  chk('collimate: beam at sample (mm)', beamRadius(rc, Z_SMP), 0.290909090909, 1e-8);
+  chk('collimate: beam at sample (mm)', beamRadius(rc, Z_SMP), 20 / 11 / 1000 * 40, 1e-9);   // r = alpha*f_OL2
 
   // --- Bragg cones must span the illuminated area, not start from a point ---
   const coneSpan = rr => {
@@ -1638,7 +1640,7 @@ function selftest() {
     state.sampleDz = dz;
     const rd = analyse();
     chk('dz=' + dz + ': sample z',       Z_SMP, SMP_Z0 + dz, 1e-12);
-    chk('dz=' + dz + ': beam radius mm', beamRadius(rd, Z_SMP), 0.02, 1e-12);
+    chk('dz=' + dz + ': beam radius mm', beamRadius(rd, Z_SMP), 0.005, 1e-12);  // alpha * |dz|
     chk('dz=' + dz + ': defocus mm',     rd.defocus, -dz, 1e-12);
     // every conjugate is referenced to Z_REF now, so NOTHING optical moves with the specimen
     chk('dz=' + dz + ': diffraction unmoved', rd.diffPlanes, [720, 1300], 1e-9);
