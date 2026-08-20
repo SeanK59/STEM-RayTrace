@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEM Column Ray Trace</title>
+<style>
+:root{
+  --bg:#121212; --panel:#1e1e1e; --accent:#80cbc4; --fg:#e0e0e0; --dim:#9e9e9e;
+  --line:#333; --ok:#a5d6a7; --bad:#ef9a9a; --diff:#ffb74d; --stage:#0b0b0b;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);
+     font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{padding:14px 20px 12px;border-bottom:1px solid var(--line)}
+.home-link{font-size:.9rem;margin-bottom:.55rem}
+.home-link a{color:var(--accent);text-decoration:none}
+.home-link a:hover{text-decoration:underline}
+h1{margin:0;font-size:19px;font-weight:600;color:var(--accent);letter-spacing:.2px}
+header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;padding:16px 20px 4px;align-items:start}
+@media(max-width:1080px){.wrap{grid-template-columns:minmax(0,1fr)}}
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:6px;
+       height:600px;overflow:hidden}
+.stage canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+
+/* controls mounted on the figure, directly above the element each one drives */
+#topband,#dzctl,#imgbtns{position:absolute;left:0;top:0}
+#topband{width:100%;height:0}
+.lensctl{position:absolute;width:48px;transform:translateX(-50%);text-align:center}
+.lensctl input[type=number]{width:100%;padding:1px 2px;font-size:9.5px;line-height:1.25;
+                            text-align:center;border-radius:2px}
+.lensctl input[type=range]{writing-mode:vertical-lr;direction:rtl;-webkit-appearance:slider-vertical;
+                           width:22px;height:62px;margin:3px auto 0;display:block}
+.lensctl.off input[type=number]{color:#6b6b6b}
+.lensctl.off input[type=range]{accent-color:#5a5a5a;opacity:.55}
+#dzctl{display:flex;align-items:center;gap:4px;transform:translateX(-50%);width:122px}
+#dzctl input[type=range]{width:64px;height:12px}
+#dzctl input[type=number]{width:54px;padding:0 2px;font-size:9.5px;text-align:center}
+#imgbtns{display:flex;gap:4px;left:auto;right:8px}
+#imgbtns button{width:auto;margin:0;padding:2px 7px;font-size:10.5px;letter-spacing:.3px;
+                background:rgba(30,30,30,.82);border-color:#3d3d3d;color:#9e9e9e}
+#imgbtns button:hover{color:var(--accent);border-color:var(--accent);background:rgba(30,30,30,.95)}
+
+/* readout, laid out horizontally under the figure */
+.readpanel{margin-top:12px}
+#readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:6px 22px}
+.rgroup h3{margin:0 0 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;
+           color:#7c7c7c;font-weight:600}
+.rgroup table{margin-bottom:4px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.panel + .panel{margin-top:12px}
+.panel h2{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
+.row{display:grid;grid-template-columns:46px 1fr 76px;gap:7px;align-items:center;margin-bottom:5px}
+.row label{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
+.row.on label{color:var(--fg)}
+.row.cap{margin-bottom:6px}
+.row.cap span{color:#7c7c7c;font-size:10.5px;text-align:center;letter-spacing:.3px}
+.row .unit{color:#7c7c7c;font-size:11px;grid-column:2/4;text-align:right;margin:-3px 0 4px}
+.panel h2 .phys{float:right;color:var(--ok);letter-spacing:.4px;text-transform:none;font-size:10.5px}
+.panel h2 .cosm{float:right;color:#7c7c7c;letter-spacing:.4px;text-transform:none;font-size:10.5px}
+.hint{color:#7c7c7c;font-size:11.5px;margin-top:2px}
+button .sub{color:var(--dim);font-size:11px;display:block;margin-top:1px}
+.panel hr{border:0;border-top:1px solid var(--line);margin:9px 0 7px}
+.seg{display:flex;margin-bottom:7px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{margin:0;border:0;border-radius:0;text-align:center;font-size:11.5px;padding:5px 4px;
+            background:#191919;color:var(--dim)}
+.seg button + button{border-left:1px solid var(--line)}
+.seg button.on{background:#2a3a38;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent);height:16px;margin:0}
+input[type=number]{width:100%;background:#151515;color:var(--fg);border:1px solid var(--line);
+                   border-radius:3px;padding:2px 4px;font:12px/1.3 ui-monospace,Consolas,monospace}
+input[type=number]:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+.off input[type=number]{color:var(--dim)}
+button{background:#252525;color:var(--fg);border:1px solid var(--line);border-radius:4px;
+       padding:6px 9px;font-size:12.5px;cursor:pointer;width:100%;margin-bottom:6px;text-align:left}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:active{background:#2e2e2e}
+.chk{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:var(--dim);font-size:12.5px;cursor:pointer}
+.chk input{accent-color:var(--accent);margin:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td{padding:2px 0;vertical-align:top}
+td.k{color:var(--dim);padding-right:8px;white-space:nowrap}
+td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok)} .bad{color:var(--bad)} .dp{color:var(--diff)} .ac{color:var(--accent)}
+.note{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.5}
+.notes{margin:16px 20px 28px;padding-top:12px;border-top:1px solid var(--line);
+       color:var(--dim);font-size:12.5px;max-width:1100px}
+.notes code{background:#1c1c1c;padding:1px 4px;border-radius:3px;font-size:12px}
+.notes a{color:var(--accent)}
+#banner{display:none;margin:0 20px 8px;padding:8px 12px;border-radius:5px;
+        font-family:ui-monospace,Consolas,monospace;font-size:12.5px;white-space:pre-wrap}
+#warn{color:var(--bad);font-size:12px;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="home-link"><a href="https://seankung.ca/">&larr; seankung.ca</a></nav>
+  <h1>STEM Column Ray Trace</h1>
+  <div class="sub">Ideal thin lenses, no aberrations &middot; drag the lens powers and watch the conjugate planes move</div>
+</header>
+
+<div id="banner"></div>
+
+<div class="wrap">
+  <div>
+    <div class="stage" id="stage">
+      <canvas id="rays"></canvas>
+      <canvas id="ovl"></canvas>
+      <div id="topband"></div>
+      <div id="dzctl"></div>
+      <div id="imgbtns">
+        <button type="button" id="bCopy" title="Copy the figure to the clipboard (2&times;)">copy</button>
+        <button type="button" id="bSave" title="Save the figure as PNG (2&times;)">save</button>
+      </div>
+    </div>
+    <div class="note" id="legend"></div>
+
+    <div class="panel readpanel">
+      <h2>Readout</h2>
+      <div id="readout"></div>
+      <div id="warn"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Actions</h2>
+      <div id="alpharow"></div>
+      <button id="bFocus">Focus probe on sample <span class="sub">solves C3</span></button>
+      <button id="bColl">Collimate probe on sample <span class="sub">solves C3 &middot; parallel illumination</span></button>
+      <hr>
+      <div class="seg" id="couple">
+        <button type="button" data-mode="diff" class="on">diffraction-coupled</button
+        ><button type="button" data-mode="img">image-coupled</button>
+      </div>
+      <div id="camrow"></div>
+      <label class="chk"><input type="checkbox" id="cbHoldEL" checked> Hold EL fixed (solve PL1&ndash;PL4 only)</label>
+      <button id="bEels">Match EELS planes <span class="sub">three projector lenses at a time, every combination; four if needed</span></button>
+      <hr>
+      <button id="bReset">Restore defaults</button>
+    </div>
+
+    <div class="panel">
+      <h2>Display <span class="cosm">drawing only</span></h2>
+      <div id="disp"></div>
+      <label class="chk"><input type="checkbox" id="cbDiff" checked> Show &plusmn;1 Bragg cones</label>
+      <label class="chk"><input type="checkbox" id="cbMark" checked> Show conjugate-plane markers</label>
+      <div class="hint">Nothing in this panel changes a computed value.</div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>How to read it.</b> Solid rays are the real illumination, traced by the
+  <a href="https://github.com/ricktu288/ray-optics">Ray Optics</a> engine from a point source through the VOA.
+  Teal dashed lines are <b>sample images</b>, orange dashed lines are <b>diffraction planes</b>. Both are read off the
+  post-sample transfer matrix [[A,B],[C,D]]: an image plane is where B&nbsp;=&nbsp;0 and a diffraction plane is where
+  A&nbsp;=&nbsp;0. Neither depends on the condenser, so both stay correct in TEM and STEM alike. The
+  <b>illumination crossovers</b> listed in the readout are a different thing &mdash; images of the <i>source</i>. With
+  a focused probe they land on the sample images; with parallel illumination they land on the <b>diffraction</b>
+  planes instead, which is why they cannot be used to classify planes.
+  <br><br>
+  <b>The number under each label</b> is the primary beam <b>radius</b> at that plane. The VOA is fixed at
+  <b>1.60&nbsp;mm</b> radius, which is what sets the convergence semi-angle (&alpha; = r/80 here), the probe size, and
+  which rays are physically blocked.
+  <br><br>
+  <b>Lens sliders are logarithmic in focal length</b>, spanning 10000&nbsp;mm down to the 2&nbsp;mm strength limit at
+  about 0.86% per step, with <b>off</b> at the bottom of travel and stronger upwards. That limit is what bounds the
+  EELS solver: reach goes roughly as M<sub>max</sub>&nbsp;&asymp;&nbsp;800/f<sub>min</sub>, so 2&nbsp;mm buys
+  magnification to about 400&times; and camera length to about 8000&nbsp;mm. It is the lens strength that binds, not
+  the spacing between the projector lenses.
+  <br><br>
+  <b>Radial exaggeration <code>K</code> is cosmetic.</b> It (currently <span id="kEcho">K</span>&times;) is pure
+  vertical zoom &mdash; the beam is a fraction of a mm across in a 1500&nbsp;mm column, so it has to be stretched to be
+  seen. That is exact rather than a cheat: an ideal thin lens is perfectly linear in
+  (<i>y</i>, d<i>y</i>/d<i>z</i>), so scaling every radial quantity while leaving <i>z</i> and every focal length alone
+  reproduces the identical diagram, and no reported number moves.
+  <br><br>
+  <b>Sample defocus <code>dz</code></b> shifts the specimen off the OL1/OL2 midpoint, positive toward OL2, up to
+  &plusmn;1&nbsp;mm &mdash; enough to run a confocal depth series. Note that the diffraction planes do <i>not</i> move
+  when the sample does: a ray leaving the sample parallel to the axis stays parallel until OL2, so they are set by OL2
+  and downstream only. The image planes do move.
+  <br><br>
+  <b>Reference plane vs specimen.</b> The <b>reference plane</b> at z&nbsp;=&nbsp;640, midway between OL1 and OL2, is
+  the objective's nominal object plane and never moves &mdash; every conjugate, camera length, magnification and solve
+  is referenced to it, just as a real column's projectors are aligned to a fixed height. The <b>specimen</b> sits at
+  640&nbsp;+&nbsp;dz and affects only the Bragg cone origin, the beam radius on the specimen, the probe-defocus
+  readout and its own marker. Sweeping dz therefore moves nothing optical; it just takes the probe off the specimen.
+  <br><br>
+  <b>The two illumination modes</b> are both C2&nbsp;+&nbsp;C3, because the condenser is what sets illumination.
+  Those two lenses together fix the mode <i>and</i> the convergence angle: <b>&alpha; = |marginal ray height at OL2| /
+  f<sub>OL2</sub></b>, the slope OL2 imparts to the marginal ray. Focused, that is the usual convergence semi-angle;
+  parallel, it is the angle OL2 focuses the illumination to, and the illuminated radius is exactly
+  <b>r&nbsp;=&nbsp;&alpha;&thinsp;f<sub>OL2</sub></b>. The &alpha; slider spans 0.55&ndash;50&nbsp;mrad and applies
+  live, keeping whichever mode you last chose; the VOA stays fixed at 1.60&nbsp;mm. Below about 0.54&nbsp;mrad focused
+  the solve refuses, because 0.1&nbsp;mrad would need f<sub>C3</sub>&nbsp;&asymp;&nbsp;0.37&nbsp;mm &mdash; not a
+  physical lens. On a real column you would change the aperture for that.
+  <br><br>
+  <b>The two EELS coupling modes</b> are exact mirrors of one another, and mutually exclusive:
+  <i>diffraction-coupled</i> puts the diffraction pattern on the entrance aperture and the sample image on the EELS
+  focal plane; <i>image-coupled</i> swaps them. Either pairing uses up two degrees of freedom, so a two-lens solve
+  would leave the third quantity as whatever fell out &mdash; PL1 is the lens that buys it back. In diffraction
+  coupling the knob is <b>camera length L</b> and Mag&nbsp;=&nbsp;200/L follows; in image coupling the knob is
+  <b>magnification M</b> and L&nbsp;=&nbsp;200/M at the focal plane follows (200&nbsp;mm being the gap between the two
+  EELS planes). Because both conditions live entirely in the post-sample matrix, <b>matching works identically under
+  focused and parallel illumination</b> &mdash; the same PL1/PL4/EL solve either way.
+  <br><br>
+  <b>Where A and B come from.</b> Write the ray-transfer matrix from the <i>reference plane</i> to whichever plane you
+  care about as [[A,&nbsp;B],&nbsp;[C,&nbsp;D]]. A ray leaving the reference plane with height <i>y</i> and slope
+  <i>&theta;</i> arrives at height A<i>y</i>&nbsp;+&nbsp;B<i>&theta;</i>. At a <b>diffraction plane</b> A&nbsp;=&nbsp;0,
+  so it arrives at B<i>&theta;</i> &mdash; position depends only on angle &mdash; and that B <i>is</i> the
+  <b>camera length</b> L in r&nbsp;=&nbsp;L&thinsp;&theta;. At an <b>image plane</b> B&nbsp;=&nbsp;0, so it arrives at
+  A<i>y</i>, and that A <i>is</i> the <b>magnification</b>. Both are shown at both EELS planes and greyed out wherever
+  the plane is not of the matching kind, because that is the only place each means what it is called.
+  <br><br>
+  Camera length defined this way is the same number as the textbook L&nbsp;=&nbsp;f<sub>OL2</sub>&thinsp;M &mdash;
+  OL2's back focal plane at z&nbsp;=&nbsp;720 is conjugate to the aperture at M&nbsp;=&nbsp;&minus;1, so
+  40&nbsp;&times;&nbsp;1&nbsp;=&nbsp;40&nbsp;mm. It is perfectly meaningful in STEM: it is what decides which
+  scattering angles get inside the aperture.
+  <br><br>
+  <b>Bragg cones</b> are a construction: the illumination re-emitted at &plusmn;&theta;<sub>B</sub>, amber for +1 and
+  violet for &minus;1. Each cone ray leaves from its own primary ray's position on the sample, so a focused probe gives
+  cones from a point and parallel illumination gives cones across the whole illuminated width. They merge at every
+  image plane and spread into separated discs at every diffraction plane, which is what a CBED pattern shows &mdash;
+  but the exact plane positions come from the paraxial solver, not from the cones.
+  <br><br>
+  Ideal thin lenses only; no spherical or chromatic aberration, no space charge, no lens bore limits.
+  Positive focal lengths only. Element positions are fixed.
+  <br><br>
+  Sean Kung &middot; <a href="mailto:sean.kung@ubc.ca">sean.kung@ubc.ca</a> &middot;
+  bundles Ray Optics Simulation 5.4 (Apache-2.0, see NOTICE)
+</div>
+
+<script>var module = { exports: {} }, exports = module.exports;</script>
+<script src="vendor/rayOptics.js"></script>
+<script>
+"use strict";
+const RO = module.exports;
+
+/* ================================================================
+   1.  Column configuration -- the single source of truth.
+       z in mm from the source crossover.  f in mm.
+   ================================================================ */
+const COLUMN = [
+  { id:'SRC', label:'Source',     z:    0, kind:'source' },
+  { id:'C1',  label:'C1',         z:  100, kind:'lens',     f: 100 },
+  { id:'VOA', label:'VOA',        z:  200, kind:'aperture', r: 1.6 },
+  { id:'C2',  label:'C2',         z:  300, kind:'lens',     f: 100 },
+  { id:'C3',  label:'C3',         z:  450, kind:'lens',     f:  50 },
+  { id:'OL1', label:'OL1',        z:  600, kind:'lens',     f:  40 },
+  { id:'SMP', label:'Sample',     z:  640, kind:'plane',    marks:'image' },
+  { id:'OL2', label:'OL2',        z:  680, kind:'lens',     f:  40 },
+  { id:'PL1', label:'PL1',        z:  800, kind:'lens',     f: 120 },
+  { id:'PL2', label:'PL2',        z:  900, kind:'lens',     f: Infinity },
+  { id:'PL3', label:'PL3',        z: 1000, kind:'lens',     f: Infinity },
+  { id:'PL4', label:'PL4',        z: 1100, kind:'lens',     f: 150 },
+  { id:'EL',  label:'EL',         z: 1250, kind:'lens',     f: 375 },
+  { id:'EAP', label:'EELS ap.',   z: 1300, kind:'plane',    marks:'diff'  },
+  { id:'EFP', label:'EELS focal', z: 1500, kind:'plane',    marks:'image' },
+];
+const BY_ID     = Object.fromEntries(COLUMN.map(e => [e.id, e]));
+const LENSES = COLUMN.filter(e => e.kind === 'lens');
+const Z_EAP = BY_ID.EAP.z, Z_EFP = BY_ID.EFP.z, Z_VOA = BY_ID.VOA.z;
+// The sample can be defocused along z, so its plane is not a constant.
+// Two distinct planes. Z_REF is the objective's nominal object plane, midway between OL1
+// and OL2, and it NEVER moves: every conjugate, camera length, magnification and solve is
+// referenced to it, exactly as a real column's projectors are aligned to a fixed height.
+// Z_SMP is where the specimen actually sits, which defocus shifts; it only affects the
+// Bragg cone origin, the beam radius on the specimen, the probe-defocus readout and the
+// marker drawn on the figure.
+const SMP_Z0 = (BY_ID.OL1.z + BY_ID.OL2.z) / 2;      // nominal: midway between the objectives
+const Z_REF  = SMP_Z0;
+let   Z_SMP  = SMP_Z0;
+const Z_MIN = -60, Z_MAX = 1560, Z_SPAN = Z_MAX - Z_MIN;
+// Strongest lens allowed. 1/f cap -> f_min = 2 mm, which is stiff but physically defensible
+// (real magnetic objectives run 1.5-3 mm). This is what bounds the EELS solver's reach:
+// magnification tops out at roughly 800/f_min, so 10 mm gave M <= 80 and 2 mm gives M <= 400.
+const P_MAX = 0.5;
+const F_MIN = 1 / P_MAX, F_MAX = 10000;   // slider span in focal length, mm
+
+/** Lens sliders are logarithmic in FOCAL LENGTH with a reserved "off" at the bottom, so a
+ *  375 mm and a 4 mm lens are equally easy to dial. Linear-in-power would put every default
+ *  in the bottom few percent of travel once the cap is this high. ~0.86% per step. */
+const SLIDER_STEPS = 999;
+// alpha slider, logarithmic over the range C2 + C3 can actually deliver: the focused floor
+// is 0.5405 mrad at f >= 2 mm, so 0.55 leaves no dead travel.
+const A_MIN = 0.55, A_MAX = 50;      // mrad
+const sliderToAlpha = t => A_MIN * Math.pow(A_MAX / A_MIN, t / 1000);
+const alphaToSlider = a =>
+  Math.round(1000 * Math.log(Math.min(A_MAX, Math.max(A_MIN, a)) / A_MIN) / Math.log(A_MAX / A_MIN));
+const sliderToPower = t =>
+  t <= 0 ? 0 : 1 / (F_MAX * Math.pow(F_MIN / F_MAX, (t - 1) / SLIDER_STEPS));
+const powerToSlider = pw => {
+  if (!(pw > 0)) return 0;
+  const f = Math.min(F_MAX, Math.max(F_MIN, 1 / pw));      // clamp the DISPLAY only
+  return Math.round(1 + SLIDER_STEPS * Math.log(F_MAX / f) / Math.log(F_MAX / F_MIN));
+};
+const TOL   = 0.5;          // mm, "coincides with" tolerance
+const BORE  = 4000;         // scene units; lens/aperture segments, never bypassed
+
+const state = {
+  power    : Object.fromEntries(LENSES.map(e => [e.id, 1 / e.f])),   // mm^-1; f=Infinity -> 0
+  voaR     : BY_ID.VOA.r,
+  nRays    : 15,
+  K        : 120,
+  thetaB   : 10,             // mrad
+  coupling : 'diff',         // 'diff' | 'img'  -- the two EELS coupling regimes
+  holdEL   : true,           // keep the EELS lens fixed; solve with PL1-PL4 only
+  alpha    : 20,             // convergence semi-angle, mrad -- set by C2 + C3
+  illumMode: 'focus',        // 'focus' | 'collimate' -- what the alpha slider preserves
+  targetL  : 40,             // diffraction-coupled: camera length at the EELS aperture, mm
+  targetM  : 10,             // image-coupled: magnification at the EELS aperture
+  sampleDz : 0,              // sample shift from the OL1/OL2 midpoint, mm (+ = toward OL2)
+  showDiff : true,
+  showMark : true,
+};
+
+/* ================================================================
+   2.  Paraxial (ABCD) layer.
+       ray = (y, u = dy/dz).   drift: y += u*d.   lens: u -= y/f.
+       Exact for an ideal thin lens, at any angle.
+   ================================================================ */
+
+/** Trace (y0,u0) from z0 to zEnd through every lens in between.
+ *  Returns the node polyline, every axis crossing, and a state probe. */
+function traceFrom(z0, y0, u0, zEnd) {
+  const nodes = [{ z: z0, y: y0 }], zeros = [];
+  const stops = COLUMN.filter(e => e.z > z0 + 1e-9 && e.z <= zEnd + 1e-9)
+                      .sort((a, b) => a.z - b.z);
+  let y = y0, u = u0, z = z0;
+  const record = zNext => {
+    if (u !== 0) {
+      const zc = z - y / u;
+      if (zc > z + 1e-9 && zc <= zNext + 1e-9) zeros.push(zc);
+    }
+  };
+  for (const el of stops) {
+    record(el.z);
+    y += u * (el.z - z); z = el.z;
+    nodes.push({ z, y });
+    if (el.kind === 'lens') u -= y * state.power[el.id];
+  }
+  record(zEnd);
+  if (zEnd > z + 1e-9) { y += u * (zEnd - z); z = zEnd; nodes.push({ z, y }); }
+
+  return {
+    nodes, zeros, yEnd: y, uEnd: u,
+    at(zq) {
+      let yy = y0, uu = u0, zz = z0;
+      for (const el of stops) {
+        if (el.z > zq + 1e-9) break;
+        yy += uu * (el.z - zz); zz = el.z;
+        if (el.kind === 'lens') uu -= yy * state.power[el.id];
+      }
+      return { y: yy + uu * (zq - zz), u: uu };
+    }
+  };
+}
+
+/** The +/-1 Bragg cones: the illumination re-emitted at +/- thetaB, five rays per order.
+ *  Each cone ray must leave from ITS OWN primary ray's position and slope at the sample --
+ *  starting them all at y = 0 is only right when the probe happens to be focused there, and
+ *  makes parallel illumination look like a point source. A drawing construction only. */
+function coneTraces(r) {
+  const th = state.thetaB / 1000, out = [];
+  const ys = r.a.at(Z_SMP).y, us = r.a.at(Z_SMP).u;   // per unit slope at the source
+  for (const m of [-1, 1])
+    for (let k = -2; k <= 2; k++) {
+      const u0 = r.u0max * (k / 2);                    // this fan member's share
+      out.push({ m: m, t: traceFrom(Z_SMP, ys * u0, us * u0 + m * th, Z_MAX) });
+    }
+  return out;
+}
+
+/** Illumination ray: from the on-axis point source. Its zeros are images of the SOURCE --
+ *  the probe crossover under focused illumination, but the DIFFRACTION spot under parallel
+ *  illumination. They are only the sample-conjugate planes in the focused case, so they must
+ *  not be used to classify planes. */
+const axialRay = () => traceFrom(0, 0, 1, Z_MAX);
+
+/** The two post-sample basis rays. Writing the sample->z transfer as [[A,B],[C,D]]:
+ *    imgRay  starts (0,1) at the sample, so its height IS B  -> zeros are the IMAGE planes,
+ *            and its height at a diffraction plane is the camera length.
+ *    diffRay starts (1,0) at the sample, so its height IS A  -> zeros are the DIFFRACTION
+ *            planes, and its height at an image plane is the magnification.
+ *  Neither depends on the condenser, so both are correct in TEM and STEM alike. */
+const imgRay  = () => traceFrom(Z_REF, 0, 1, Z_MAX);
+const diffRay = () => traceFrom(Z_REF, 1, 0, Z_MAX);
+
+const near = (list, z) => list.reduce((b, c) =>
+  Math.abs(c - z) < Math.abs(b - z) ? c : b, Infinity);
+
+/** Push the sample defocus into the column. COLUMN's SMP entry and BY_ID.SMP are the same
+ *  object, and traceFrom re-derives and re-sorts its stop list every call, so moving it is
+ *  enough -- +-1 mm keeps it between OL1 and OL2, so the ordering cannot break. */
+function syncSampleZ() {
+  state.sampleDz = Math.max(-1, Math.min(1, state.sampleDz));
+  BY_ID.SMP.z = SMP_Z0 + state.sampleDz;
+  Z_SMP = BY_ID.SMP.z;
+}
+
+function analyse() {
+  syncSampleZ();
+  const a = axialRay(), b = diffRay(), i = imgRay();
+  const crossovers  = a.zeros.filter(z => z > 1e-6);   // illumination / source images
+  const diffPlanes  = b.zeros;                         // A = 0
+  const imagePlanes = i.zeros;                         // B = 0
+
+  const yVOA  = a.at(Z_VOA).y;
+  const uRef  = a.at(Z_REF).u, yRef = a.at(Z_REF).y;
+  const u0max = Math.abs(yVOA) > 1e-9 ? state.voaR / Math.abs(yVOA) : 0.02;
+
+  // A and B of the sample->plane transfer, read straight off the two basis rays.
+  const A = z => diffRay().at(z).y;      // magnification, where the plane is an image
+  const B = z => imgRay().at(z).y;       // camera length,  where the plane is a diffraction plane
+  const magEAP = Math.abs(b.at(Z_EAP).y), camEAP = Math.abs(i.at(Z_EAP).y);
+  const magEFP = Math.abs(b.at(Z_EFP).y), camEFP = Math.abs(i.at(Z_EFP).y);
+
+  const zProbe = near(crossovers, Z_SMP);   // probe focus vs the SPECIMEN, not the reference
+
+  const hitAny = z => {
+    const zi = near(imagePlanes, z), zd = near(diffPlanes, z);
+    return { image: Math.abs(zi - z) <= TOL, diff: Math.abs(zd - z) <= TOL,
+             zImage: zi, zDiff: zd };
+  };
+  // Parallel illumination at the reference plane. Scale-free, and independent of u0max --
+  // which matters now that u0max is what the alpha control works back from.
+  const collimated = Math.abs(uRef) * (Z_MAX - Z_REF) < 1e-3 * Math.abs(yRef);
+
+  // One definition of the convergence semi-angle that covers both regimes: the slope OL2
+  // imparts to the marginal ray. Focused, it is the usual convergence angle; parallel, it
+  // is the angle OL2 focuses the illumination to, and r_specimen = alpha * f_OL2.
+  const fOL2   = state.power.OL2 > 0 ? 1 / state.power.OL2 : Infinity;
+  const alpha  = isFinite(fOL2) ? Math.abs(a.at(BY_ID.OL2.z).y) * u0max / fOL2
+                                : Math.abs(uRef) * u0max;
+
+  const eap = hitAny(Z_EAP), efp = hitAny(Z_EFP);
+  const mk = (h, want, extra) => Object.assign({
+    z  : want === 'diff' ? h.zDiff : h.zImage,
+    ok : want === 'diff' ? h.diff  : h.image
+  }, h, extra || {});
+
+  // The specimen is judged against the illumination, not against its own conjugates:
+  // it is "in focus" when the probe crossover sits on it.
+  const smpFocused = Math.abs(zProbe - Z_SMP) <= TOL;
+
+  return {
+    a, b, i, crossovers, diffPlanes, imagePlanes, u0max, collimated, A, B,
+    magEAP: magEAP, camEAP: camEAP, magEFP: magEFP, camEFP: camEFP,
+    mag : magEFP, camL: camEAP,                             // back-compat names
+    alpha  : alpha,                                         // rad
+    uRef   : uRef, yRef : yRef, fOL2 : fOL2,
+    probeR : Math.abs(a.at(Z_SMP).y) * u0max * 1000,        // um, at the SPECIMEN
+    defocus: isFinite(zProbe) ? zProbe - Z_SMP : NaN,
+    chk: { SMP: { image: smpFocused, diff: false, zImage: zProbe, zDiff: Infinity,
+                  z: zProbe, ok: smpFocused, collimated: collimated },
+           EAP: mk(eap, 'diff'),
+           EFP: mk(efp, 'image') }
+  };
+}
+
+/** How a named plane should be shown: 'ok' green, 'alt' a different but valid state, 'no'. */
+function planeState(id, c) {
+  if (id === 'SMP') {
+    if (c.image) return { kind: 'ok',  mark: '&#10003;', word: 'focused',     z: c.zImage };
+    if (c.collimated) return { kind: 'alt', mark: '&#8741;', word: 'parallel', z: NaN };
+    return { kind: 'no', mark: '&#10007;', word: '', z: c.zImage };
+  }
+  // Which kind belongs at each EELS plane depends on the coupling regime -- they swap.
+  const wantDiff = (id === 'EAP') === (state.coupling === 'diff');
+  const asDiff  = { kind: 'ok',  mark: '&#10003;', word: 'diffraction', z: c.zDiff  };
+  const asImage = { kind: 'ok',  mark: '&#10003;', word: 'image',       z: c.zImage };
+  const altDiff  = { kind: 'alt', mark: '&#9678;', word: 'diffraction', z: c.zDiff  };
+  const altImage = { kind: 'alt', mark: '&#9678;', word: 'image',       z: c.zImage };
+  if (wantDiff) {
+    if (c.diff)  return asDiff;
+    if (c.image) return altImage;
+    return { kind: 'no', mark: '&#10007;', word: '', z: c.zDiff };
+  }
+  if (c.image) return asImage;
+  if (c.diff)  return altDiff;
+  return { kind: 'no', mark: '&#10007;', word: '', z: c.zImage };
+}
+
+const PLANE_COL = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };
+
+/* ================================================================
+   3.  Solvers.  Ray height at a target plane is EXACTLY affine in a
+       single lens's power, so each solve is two evaluations.
+   ================================================================ */
+/** key 'y' drives the ray height to zero at targetZ (a focus there);
+ *  key 'u' drives its slope to zero (collimated there). Both are affine in the power. */
+function solvePower(lensId, ray, targetZ, key) {
+  const k = key || 'y';
+  const keep = state.power[lensId];
+  const probe = p => { state.power[lensId] = p; return ray().at(targetZ)[k]; };
+  const y0 = probe(0), y1 = probe(1e-3);
+  state.power[lensId] = keep;
+  const slope = (y1 - y0) / 1e-3;
+  if (!isFinite(slope) || Math.abs(slope) < 1e-12) return null;
+  const p = -y0 / slope;
+  return (isFinite(p) && p >= 0 && p <= P_MAX) ? p : null;
+}
+
+/** Backward propagation that keeps the slope too. The hot solver path uses the height-only
+ *  traceBackY; this is called a handful of times per illumination solve, so the object it
+ *  allocates costs nothing. */
+function traceBackState(y, u, zFrom, zTo, over) {
+  const stops = backStops(zFrom, zTo);
+  let z = zFrom;
+  for (let i = 0; i < stops.length; i++) {
+    const el = stops[i];
+    y -= u * (z - el.z); z = el.z;
+    u += y * (over && el.id in over ? over[el.id] : state.power[el.id]);
+  }
+  return { y: y - u * (z - zTo), u: u };
+}
+
+/** Set the illumination: C2 and C3 together fix BOTH the mode (probe focused at the
+ *  reference plane, or parallel there) AND the convergence semi-angle alpha, with the VOA
+ *  left at its fixed 1.6 mm.
+ *
+ *  Two conditions, two unknowns. alpha is defined as the slope OL2 imparts to the marginal
+ *  ray, |y(OL2)| / f_OL2, which is the ordinary convergence angle when the probe is focused
+ *  and the focusing angle of the parallel beam when it is not. That pins the wanted state
+ *  of the unit axial ray at Z_REF:
+ *
+ *      focused    (y, u) = (0, +-alpha * f_OL2 / (d * u0max)),  d = Z_OL2 - Z_REF
+ *      parallel   (y, u) = (+-alpha * f_OL2 / u0max, 0)
+ *
+ *  u0max is fixed while solving because the VOA sits upstream of C2, so there is no
+ *  circularity. Propagating that state back to C2 makes the height there affine in the C3
+ *  power -- two probes solve it exactly -- and C2 then follows from the slope match. */
+function applyIllumination() {
+  syncSampleZ();
+  const a0 = axialRay();
+  const yVOA = a0.at(Z_VOA).y;
+  if (!(Math.abs(yVOA) > 1e-9))
+    return ['bad', 'The illumination crosses over at the VOA, so the aperture defines no angle. Adjust C1.'];
+  const u0max = state.voaR / Math.abs(yVOA);
+  const fOL2  = state.power.OL2 > 0 ? 1 / state.power.OL2 : Infinity;
+  if (!isFinite(fOL2))
+    return ['bad', 'OL2 is off, so alpha is undefined - switch it on to set the convergence angle.'];
+
+  const zC2 = BY_ID.C2.z, zC3 = BY_ID.C3.z;
+  const d   = BY_ID.OL2.z - Z_REF;
+  const rad = state.alpha / 1000;
+  const isFocus = state.illumMode === 'focus';
+  const keep = { C2: state.power.C2, C3: state.power.C3 };
+
+  // Forward state just before C2 -- fixed, since only C1 lies upstream. The epsilon must be
+  // bigger than the 1e-9 tolerance inside at(), or the C2 lens itself gets applied and the
+  // slope match below solves for the wrong thing. The nearest upstream element is 100 mm
+  // away, so 1e-6 mm of drift is irrelevant.
+  const fwd = a0.at(zC2 - 1e-6);
+
+  let best = null, bestCost = Infinity;
+  for (const s of [1, -1]) {
+    const tgt = isFocus ? { y: 0, u: s * rad * fOL2 / (d * u0max) }
+                        : { y: s * rad * fOL2 / u0max, u: 0 };
+
+    // backward height at C2 is affine in the C3 power
+    const backY = p3 => traceBackState(tgt.y, tgt.u, Z_REF, zC2, { C3: p3 }).y;
+    const q0 = backY(0), q1 = backY(1e-3), sl = (q1 - q0) / 1e-3;
+    if (Math.abs(sl) < 1e-14) continue;
+    const p3 = (fwd.y - q0) / sl;
+    if (!(p3 > 0 && p3 <= P_MAX)) continue;
+
+    const back = traceBackState(tgt.y, tgt.u, Z_REF, zC2, { C3: p3 });
+    if (Math.abs(back.y) < 1e-12) continue;
+    const p2 = (fwd.u - back.u) / back.y;       // the lens at C2 supplies the slope step
+    if (!(p2 > 0 && p2 <= P_MAX)) continue;
+
+    const cost = Math.abs(p2 - keep.C2) + Math.abs(p3 - keep.C3);
+    if (cost < bestCost) { bestCost = cost; best = { p2: p2, p3: p3 }; }
+  }
+
+  if (!best) {
+    state.power.C2 = keep.C2; state.power.C3 = keep.C3;
+    return ['bad', 'No positive-focal-length C2 + C3 gives ' + state.alpha.toFixed(2) +
+                   ' mrad ' + (isFocus ? 'with the probe focused' : 'with parallel illumination') +
+                   ' on this column. The floor is about 0.54 mrad focused with f >= ' +
+                   F_MIN + ' mm.'];
+  }
+
+  state.power.C2 = best.p2; state.power.C3 = best.p3;
+  const r = analyse();
+  return ['ok', (isFocus ? 'Probe focused on the reference plane' : 'Parallel illumination')
+    + ' at alpha = ' + (r.alpha * 1000).toFixed(2) + ' mrad: C2 ' + (1 / best.p2).toFixed(2)
+    + ', C3 ' + (1 / best.p3).toFixed(2) + ' mm.'
+    + (isFocus ? '' : ' Spot radius ' + fmtLen(Math.abs(r.yRef) * r.u0max) + '.')];
+}
+
+function focusProbeOnSample() {
+  state.illumMode = 'focus';
+  return applyIllumination();
+}
+
+function collimateOnSample() {
+  state.illumMode = 'collimate';
+  return applyIllumination();
+}
+
+const Z_PL1 = BY_ID.PL1.z, D_EELS = Z_EFP - Z_EAP;
+
+/** Propagate a ray BACKWARDS from zFrom to zTo, inverting every lens strictly between.
+ *  Inverse of a thin lens is u += y*p (y is unchanged by a lens either way).
+ *  `over` supplies powers for named lenses; everything else uses the live state. */
+const _backStops = {};
+/** Lens positions never change, so the reversed stop list for a (zFrom, zTo) pair is
+ *  cached -- the solver calls traceBack tens of thousands of times per root scan, and
+ *  re-filtering and re-sorting COLUMN each time dominated the cost. */
+function backStops(zFrom, zTo) {
+  const k = zFrom + ':' + zTo;
+  return _backStops[k] || (_backStops[k] =
+    COLUMN.filter(e => e.kind === 'lens' && e.z > zTo + 1e-9 && e.z < zFrom - 1e-9)
+          .sort((a, b) => b.z - a.z));                      // downstream first
+}
+function traceBackY(y, u, zFrom, zTo, over) {
+  const stops = backStops(zFrom, zTo);
+  let z = zFrom;
+  for (let i = 0; i < stops.length; i++) {
+    const el = stops[i];
+    y -= u * (z - el.z); z = el.z;                          // drift backwards
+    u += y * (over && el.id in over ? over[el.id] : state.power[el.id]);
+  }
+  return y - u * (z - zTo);          // height only: the solver never needs the slope, and
+}                                    // returning a number avoids millions of allocations
+
+/** Match the two EELS planes, in either coupling regime.
+ *
+ *    diffraction-coupled   A(EAP) = 0 and B(EFP) = 0   knob: camera length L, Mag = D/L
+ *    image-coupled         B(EAP) = 0 and A(EFP) = 0   knob: magnification M, L@EFP = D/M
+ *
+ *  They are mirror images of one another. Either pair pins the whole ray state at the
+ *  aperture in closed form (the second row of each follows from the Lagrange invariant):
+ *
+ *    diff:  imgRay = (s*L, -s*L/D)   diffRay = (0,    -s/L)
+ *    img:   imgRay = (0,     s/M)    diffRay = (s*M,  -s*M/D)
+ *
+ *  Both conditions live entirely in the post-sample matrix, so NOTHING here depends on the
+ *  condenser -- matching works identically under focused and parallel illumination. That is
+ *  also why the basis rays must be imgRay/diffRay and not the illumination ray, whose slope
+ *  at the sample goes to zero in TEM mode.
+ *
+ *  Three conditions need three free lenses. Propagating the pinned state back to the most
+ *  upstream free lens A and matching the forward state there makes the middle lens B an
+ *  exact affine solve for each trial power of the downstream lens C, leaving a single 1-D
+ *  root find. Alternating three 1-D solves instead does NOT converge.
+ *
+ *  A is the upstream-most free lens; B and C are the other two. Returns a power map to
+ *  adopt, or null. Leaves state.power as it found it either way. */
+function solveTriple(A, B, C, mode, target, N) {
+  const isDiff = mode === 'diff';
+  const zA   = BY_ID[A].z;
+  const keep = Object.assign({}, state.power);
+  // Forward heights at A. A lens does not change y, so matching y AT its plane is well
+  // defined, and everything upstream of A is fixed background.
+  const iFwd = imgRay().at(zA).y, dFwd = diffRay().at(zA).y;
+
+  for (const s of [-1, 1]) {                                // image-parity branch
+    const iT = isDiff ? { y: s * target, u: -s * target / D_EELS } : { y: 0, u: s / target };
+    const dT = isDiff ? { y: 0, u: -s / target } : { y: s * target, u: -s * target / D_EELS };
+
+    // one shared override object and no per-call allocation: this inner loop runs tens of
+    // thousands of times per scan
+    const ov = {}; ov[C] = 0; ov[B] = 0;
+    const backY = (ty, tu, pC, pB) => { ov[C] = pC; ov[B] = pB;
+                                        return traceBackY(ty, tu, Z_EAP, zA, ov); };
+    const pBFor = pC => {
+      const q0 = backY(dT.y, dT.u, pC, 0), q1 = backY(dT.y, dT.u, pC, 1e-3);
+      const sl = (q1 - q0) / 1e-3;
+      return Math.abs(sl) < 1e-14 ? null : (dFwd - q0) / sl;
+    };
+    const resid = pC => {
+      const pB = pBFor(pC);
+      if (pB === null || !(pB > 0 && pB <= P_MAX)) return null;
+      const v = backY(iT.y, iT.u, pC, pB) - iFwd;
+      return isFinite(v) ? v : null;
+    };
+
+    const roots = [];
+    let prev = null;
+    for (let i = 0; i <= N; i++) {
+      const pC = 1e-6 + (P_MAX - 1e-6) * i / N;
+      const v = resid(pC);
+      if (v === null) { prev = null; continue; }
+      if (prev && prev.v * v < 0) {
+        let lo = prev.p, hi = pC;
+        for (let k = 0; k < 100; k++) {
+          const m = (lo + hi) / 2, vm = resid(m), vlo = resid(lo);
+          if (vm === null || vlo === null) break;
+          if (vlo * vm <= 0) hi = m; else lo = m;
+        }
+        roots.push((lo + hi) / 2);
+      }
+      prev = { p: pC, v: v };
+    }
+
+    for (const pC of roots) {
+      const pB = pBFor(pC);
+      if (pB === null || !(pB > 0 && pB <= P_MAX)) continue;
+      state.power[C] = pC; state.power[B] = pB;
+      const pA = solvePower(A, isDiff ? diffRay : imgRay, Z_EAP);
+      if (pA !== null && pA > 0) {
+        state.power[A] = pA;
+        const r = analyse();
+        const hit = isDiff ? (r.chk.EAP.diff && r.chk.EFP.image)
+                           : (r.chk.EAP.image && r.chk.EFP.diff);
+        const got = isDiff ? r.camEAP : r.magEAP;
+        if (hit && Math.abs(got - target) < Math.max(5e-4, target * 1e-5)) {
+          const found = Object.assign({}, state.power);
+          Object.assign(state.power, keep);
+          return found;
+        }
+      }
+      Object.assign(state.power, keep);
+    }
+  }
+  Object.assign(state.power, keep);
+  return null;
+}
+
+const PROJ = ['PL1', 'PL2', 'PL3', 'PL4', 'EL'];    // upstream to downstream
+// Root-scan density. A second, 10x finer pass was measured to recover NOTHING the coarse
+// pass misses (identical failure sets over L = 1..1200 and M = 0.2..200) while pushing an
+// exhaustive miss from 0.19 s to 1.9 s -- it is the B/C role swap in tripleCandidates, not
+// scan density, that finds the awkward roots. Add another entry here if a stubborn case
+// ever turns up; each extra pass only runs when the previous one found nothing.
+const SCAN_N = [8000];
+
+/** Every 3-subset of `pool`, each in both B/C role orders. The swap matters: scanning C
+ *  rather than B gives a different residual with different poles, and that alone recovers
+ *  targets an unlucky scan would otherwise miss. */
+function tripleCandidates(pool) {
+  const out = [];
+  for (let a = 0; a < pool.length; a++)
+    for (let b = a + 1; b < pool.length; b++)
+      for (let c = b + 1; c < pool.length; c++) {
+        out.push([pool[a], pool[b], pool[c]]);
+        out.push([pool[a], pool[c], pool[b]]);
+      }
+  return out;
+}
+
+// Four-lens search: a cost/reach trade tuned by measurement, not guessed. 20 x 1500 keeps
+// every target the richer 25 x 3000 setting reaches (M up to 5000, L up to 30000) while a
+// genuine miss drops from 5.1 s to 2.3 s with EL free, and 0.52 s with EL held -- the usual
+// case, since holding EL leaves one quad instead of five. Raise these if a target ever
+// proves unreachable that should not be; the stage only runs when every triple has failed.
+const QUAD = { steps: 20, N: 1500 };
+
+/** Scan one lens of a quad across its range, solving the other three exactly at each step.
+ *  Returns the gentlest hit from the first quad/free/order sweep that yields any. */
+function bestQuad(mode, target, pool, before) {
+  if (pool.length < 4) return null;
+  const quads = [];
+  for (let a = 0; a < pool.length; a++)
+    for (let b = a + 1; b < pool.length; b++)
+      for (let c = b + 1; c < pool.length; c++)
+        for (let d = c + 1; d < pool.length; d++)
+          quads.push([pool[a], pool[b], pool[c], pool[d]]);
+  // all-projector quads first: they leave EL alone, which is what hold-EL wants anyway
+  quads.sort((x, y) => (x.indexOf('EL') >= 0 ? 1 : 0) - (y.indexOf('EL') >= 0 ? 1 : 0));
+
+  const keep = Object.assign({}, state.power);
+  for (const quad of quads) {
+    for (const free of quad) {
+      const rest = quad.filter(id => id !== free);
+      for (const order of [[rest[0], rest[1], rest[2]], [rest[0], rest[2], rest[1]]]) {
+        let win = null, winCost = Infinity;
+        for (let i = 1; i <= QUAD.steps; i++) {
+          state.power[free] = i * (P_MAX / QUAD.steps);
+          const got = solveTriple(order[0], order[1], order[2], mode, target, QUAD.N);
+          if (!got) continue;
+          got[free] = state.power[free];
+          let cost = 0;
+          for (const id of PROJ) cost += Math.abs(got[id] - before[id]);
+          if (cost < winCost) { winCost = cost; win = got; }
+        }
+        Object.assign(state.power, keep);
+        if (win) return { power: win, trip: order, quad: quad };
+      }
+    }
+  }
+  Object.assign(state.power, keep);
+  return null;
+}
+
+function matchEelsPlanes() {
+  syncSampleZ();
+  const mode   = state.coupling;
+  const isDiff = mode === 'diff';
+  const target = isDiff ? state.targetL : state.targetM;
+  const name   = isDiff ? 'Diffraction-coupled' : 'Image-coupled';
+  const before = Object.assign({}, state.power);
+
+  // Already there? Say so and touch nothing. Without this, holding EL at the defaults leaves
+  // only PL1 and PL4 excited -- too few for a triple -- so the search would drop to the last
+  // resort and switch on PL2 or PL3 to "reach" a target the column already meets.
+  const now = analyse();
+  const nowHit = isDiff ? (now.chk.EAP.diff && now.chk.EFP.image)
+                        : (now.chk.EAP.image && now.chk.EFP.diff);
+  const nowGot = isDiff ? now.camEAP : now.magEAP;
+  if (nowHit && Math.abs(nowGot - target) < Math.max(5e-4, target * 1e-5))
+    return ['ok', name + ' already at ' +
+      (isDiff ? 'L = ' + now.camEAP.toFixed(2) + ' mm' : 'M = ' + now.magEAP.toFixed(3) + '×') +
+      ' - no lens changed.'];
+
+  const usable  = id => !(state.holdEL && id === 'EL');
+  const excited = PROJ.filter(id => state.power[id] > 0 && usable(id));
+  const all     = PROJ.filter(usable);
+
+  // The gentlest solution wins, so every candidate in the winning stage is solved rather
+  // than stopping at the first hit.
+  const best = (pool, N) => {
+    let win = null, winCost = Infinity, winTrip = null;
+    for (const t of tripleCandidates(pool)) {
+      const got = solveTriple(t[0], t[1], t[2], mode, target, N);
+      if (!got) continue;
+      let cost = 0;
+      for (const id of PROJ) cost += Math.abs(got[id] - before[id]);
+      if (cost < winCost) { winCost = cost; win = got; winTrip = t; }
+    }
+    return win ? { power: win, trip: winTrip } : null;
+  };
+
+  // Stages: lenses already on, coarse then fine. Only then may an off lens be switched on.
+  let hit = null, viaQuad = null;
+  for (const N of SCAN_N) { hit = best(excited, N); if (hit) break; }
+  if (!hit && all.length > excited.length)
+    for (const N of SCAN_N) { hit = best(all, N); if (hit) break; }
+
+  // Last resort: four lenses at once. Three conditions need three unknowns for a locally
+  // unique solution, so a fourth does not over-determine the system -- it UNDER-determines
+  // it into a one-parameter family. Walk that family by scanning one lens and solving the
+  // other three exactly at each step. Measured to reach M >= 1200 and L >= 30000 where no
+  // triple exists, always leaving EL alone.
+  if (!hit) {
+    const q = bestQuad(mode, target, all, before);
+    if (q) { hit = q; viaQuad = q.quad; }
+  }
+
+  if (!hit) {
+    return ['bad', 'No positive-focal-length setting of the projector lenses gives ' +
+      (isDiff ? 'a ' + target + ' mm camera length' : 'a magnification of ' + target + '×') +
+      ' with both EELS planes matched' + (state.holdEL ? ' while EL is held fixed' : '') +
+      '. Both image parities, every lens triple and every four-lens family were searched.'];
+  }
+
+  Object.assign(state.power, hit.power);
+  const r = analyse();
+  const switched = PROJ.filter(id => before[id] === 0 && state.power[id] > 0);
+  const used = hit.trip.slice().sort((a, b) => BY_ID[a].z - BY_ID[b].z);
+  return ['ok', name + ' at ' +
+    (isDiff ? 'L = ' + r.camEAP.toFixed(2) + ' mm (Mag ' + r.magEFP.toFixed(3) + '× at the focal plane)'
+            : 'M = ' + r.magEAP.toFixed(3) + '× (L = ' + r.camEFP.toFixed(2) + ' mm at the focal plane)') +
+    ' using ' + used.join(' + ') + ': ' +
+    used.map(id => id + ' ' + (1 / state.power[id]).toFixed(2)).join(', ') + ' mm.' +
+    (viaQuad ? ' Needed four lenses at once (' + viaQuad.join(' + ') + ') - no triple could.' : '') +
+    (switched.length ? ' Switched on ' + switched.join(' and ') + ' - no solution existed without.' : '') +
+    (state.holdEL ? ' EL held fixed.' : '')];
+}
+
+/* ================================================================
+   4.  ray-optics scene.  Built once, then mutated in place.
+   ================================================================ */
+const cvRays = document.getElementById('rays');
+const cvOvl  = document.getElementById('ovl');
+const stage  = document.getElementById('stage');
+let scene, sim;
+const idx = { lens: {}, voa: -1, rays: [] };
+let W = 0, H = 0, sx = 1, dpr = 1, BAND = 0, MID = 0, TOPBAND = 0, HALF = 0;
+let renderScale = 1;                                    // >1 only while exporting a hi-res PNG
+const LBL_ROWS = 3, LBL_PITCH = 24, LBL_SIZE_DY = 11;   // bottom label band geometry, CSS px
+const TOP_H = 95, DZ_ROW = 24;                          // top control band, dz row, CSS px
+/** Where drawOverlay packed each element's label, in CSS px -- the canvas-mounted
+ *  controls are positioned from these so the two can never disagree. */
+const LABEL_POS = {};
+
+/** Primary-beam radius at a plane, in mm. Every ray is a scalar multiple of the axial
+ *  ray for an on-axis point source, so the outermost surviving ray sets the extent. */
+const beamRadius = (r, z) => Math.abs(r.a.at(z).y) * r.u0max;
+
+/** 1.60 mm / 291 um / 0 */
+function fmtLen(mm) {
+  if (!isFinite(mm)) return '--';
+  if (mm >= 1)      return mm.toFixed(2) + ' mm';
+  if (mm > 0.0005)  return Math.round(mm * 1000) + ' µm';
+  return '0';
+}
+
+// ray-optics paints element glyphs onto whichever layers it is given, and falls back
+// to ctxMain when the object layers are null. Hand it a throwaway canvas for those so
+// the visible canvas carries rays only and the overlay owns every glyph.
+const junk = document.createElement('canvas');
+
+function buildScene() {
+  const objs = [];
+  for (const el of LENSES) {
+    idx.lens[el.id] = objs.length;
+    objs.push({ type:'IdealLens', p1:{ x:el.z, y:-BORE }, p2:{ x:el.z, y:BORE }, focalLength: 1e12 });
+  }
+  idx.voa = objs.length;
+  objs.push({ type:'Aperture',
+              p1:{ x:Z_VOA, y:-BORE }, p3:{ x:Z_VOA, y:-1 },
+              p4:{ x:Z_VOA, y: 1 },    p2:{ x:Z_VOA, y: BORE } });
+  for (let i = 0; i < 64; i++) {              // ray pool; unused ones parked off-scene
+    idx.rays.push(objs.length);
+    objs.push({ type:'SingleRay', p1:{ x:0, y:0 }, p2:{ x:10, y:0 } });
+  }
+
+  const json = JSON.stringify({
+    version: 5, name: 'stem-column', objs,
+    width: 800, height: 400, scale: 1, origin: { x:0, y:200 },
+    mode: 'rays', rayModeDensity: 1, simulateColors: false
+  });
+
+  return new Promise(res => {
+    scene = new RO.Scene();
+    scene.loadJSON(json, () => {
+      const j = junk.getContext('2d');
+      sim = new RO.Simulator(scene, cvRays.getContext('2d'), j, j, j, j, false, Infinity);
+      try {
+        scene.theme.ray.color        = { r:0.50,  g:0.80,  b:0.77,  a:1 };
+        scene.theme.background.color = { r:0.043, g:0.043, b:0.043, a:1 };
+      } catch (e) { /* theme shape differs between versions; harmless */ }
+      res();
+    });
+  });
+}
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2) * renderScale;
+  const r = stage.getBoundingClientRect();
+  W = Math.max(320, Math.round(r.width  * dpr));
+  H = Math.max(200, Math.round(r.height * dpr));
+  for (const c of [cvRays, cvOvl, junk]) { c.width = W; c.height = H; }
+  sx   = W / Z_SPAN;
+  // label band: 3 staggered rows, each carrying a name line and a beam-radius line
+  BAND    = Math.round((LBL_PITCH * (LBL_ROWS - 1) + LBL_SIZE_DY + 11 + 6 + DZ_ROW) * dpr);
+  TOPBAND = Math.round(TOP_H * dpr);          // lens number box + vertical slider
+  HALF    = (H - TOPBAND - BAND) / 2;         // usable half-height of the drawing area
+  MID     = TOPBAND + HALF;                   // optical axis, device px
+}
+const X = z => (z - Z_MIN) * sx;              // mm along the axis -> device px
+const Y = y => MID - state.K * y * sx;        // true mm (up positive) -> device px
+
+function syncScene(r) {
+  scene.width = W; scene.height = H; scene.scale = sx;
+  scene.origin = { x: -Z_MIN * sx, y: MID };
+
+  for (const el of LENSES) {
+    const p = state.power[el.id];
+    scene.objs[idx.lens[el.id]].focalLength = p > 0 ? 1 / p : 1e12;
+  }
+  const rs = state.K * state.voaR;            // scene units
+  const ap = scene.objs[idx.voa];
+  ap.p3.y = -rs; ap.p4.y = rs;
+
+  const n = state.nRays, umax = r.u0max * 1.25;
+  for (let i = 0; i < idx.rays.length; i++) {
+    const o = scene.objs[idx.rays[i]];
+    if (i < n) {
+      const t = n === 1 ? 0 : (2 * i / (n - 1) - 1);
+      const u = -state.K * umax * t;          // negate: ray-optics scene y is down-positive
+      o.p1.x = 0; o.p1.y = 0; o.p2.x = 10; o.p2.y = 10 * u;
+    } else {
+      o.p1.x = -1e6; o.p1.y = 0; o.p2.x = -1e6 + 10; o.p2.y = 0;
+    }
+  }
+  sim.updateSimulation(false, true);
+}
+
+/* ================================================================
+   5.  Overlay: axis, element glyphs, conjugate-plane markers.
+   ================================================================ */
+function drawOverlay(r) {
+  const g = cvOvl.getContext('2d');
+  g.clearRect(0, 0, W, H);
+  const S = dpr, mid = MID;
+
+  // Glyph height follows the beam rather than the canvas, so the picture stays
+  // beam-centric at any radial exaggeration.
+  const beamPx = Math.max.apply(null,
+    r.a.nodes.map(p => Math.abs(p.y) * r.u0max * state.K * sx).concat([state.voaR * state.K * sx]));
+  const hi = Math.min(Math.max(beamPx * 1.30, HALF * 0.30), HALF * 0.94);
+
+  // optical axis
+  g.strokeStyle = '#3a3a3a'; g.lineWidth = 1 * S; g.setLineDash([6 * S, 5 * S]);
+  g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke(); g.setLineDash([]);
+
+  // conjugate-plane markers
+  if (state.showMark) {
+    const mark = (zs, col) => {
+      g.strokeStyle = col; g.lineWidth = 1.2 * S; g.setLineDash([3 * S, 4 * S]);
+      for (const z of zs) {
+        if (z < Z_MIN || z > Z_MAX) continue;
+        g.beginPath(); g.moveTo(X(z), mid - hi * 1.12); g.lineTo(X(z), mid + hi * 1.12); g.stroke();
+      }
+      g.setLineDash([]);
+    };
+    mark(r.diffPlanes,  'rgba(255,183,77,.55)');
+    mark(r.imagePlanes, 'rgba(128,203,196,.55)');   // sample-conjugate, valid in both regimes
+  }
+
+  // Bragg cones (construction, not traced by ray-optics)
+  if (state.showDiff) {
+    g.lineWidth = 1 * S;
+    for (const c of coneTraces(r)) {
+      g.strokeStyle = c.m > 0 ? 'rgba(255,183,77,.38)'    // +1 amber
+                              : 'rgba(206,147,216,.38)';  // -1 violet
+      g.beginPath();
+      c.t.nodes.forEach((p, i) => i ? g.lineTo(X(p.z), Y(p.y)) : g.moveTo(X(p.z), Y(p.y)));
+      g.stroke();
+    }
+  }
+
+  // element glyphs
+  for (const el of COLUMN) {
+    const x = X(el.z);
+    if (el.kind === 'lens') {
+      const on = state.power[el.id] > 0;
+      g.strokeStyle = on ? 'rgba(160,190,230,.85)' : 'rgba(120,120,120,.35)';
+      g.lineWidth = (on ? 2 : 1.2) * S;
+      g.setLineDash(on ? [] : [4 * S, 4 * S]);
+      g.beginPath(); g.moveTo(x, mid - hi); g.lineTo(x, mid + hi); g.stroke();
+      g.setLineDash([]);
+      g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1 * S;   // leader up to its slider
+      g.beginPath(); g.moveTo(x, TOPBAND); g.lineTo(x, mid - hi); g.stroke();
+      g.strokeStyle = on ? 'rgba(160,190,230,.85)' : 'rgba(120,120,120,.35)';
+      if (on) {                                     // converging-lens arrowheads
+        const a = 6 * S;
+        g.fillStyle = 'rgba(160,190,230,.85)';
+        for (const s of [-1, 1]) {
+          g.beginPath();
+          g.moveTo(x, mid + s * hi);
+          g.lineTo(x - a * 0.6, mid + s * (hi - a));
+          g.lineTo(x + a * 0.6, mid + s * (hi - a));
+          g.closePath(); g.fill();
+        }
+      }
+    } else if (el.kind === 'aperture') {
+      const rs = state.K * state.voaR * sx;
+      g.strokeStyle = '#cfcfcf'; g.lineWidth = 4 * S; g.lineCap = 'butt';
+      g.beginPath(); g.moveTo(x, mid - hi * 1.05); g.lineTo(x, mid - rs); g.stroke();
+      g.beginPath(); g.moveTo(x, mid + hi * 1.05); g.lineTo(x, mid + rs); g.stroke();
+    } else if (el.kind === 'plane') {
+      g.strokeStyle = PLANE_COL[planeState(el.id, r.chk[el.id]).kind];
+      g.lineWidth = 1.4 * S; g.setLineDash([2 * S, 3 * S]);
+      g.beginPath(); g.moveTo(x, mid - hi * 1.20); g.lineTo(x, mid + hi * 1.20); g.stroke();
+      g.setLineDash([]);
+    }
+    // axis tick, so the position is unambiguous however short the glyph is
+    if (el.kind !== 'source') {
+      g.strokeStyle = 'rgba(200,200,200,.35)'; g.lineWidth = 1 * S;
+      g.beginPath(); g.moveTo(x, mid - 3 * S); g.lineTo(x, mid + 3 * S); g.stroke();
+    }
+  }
+
+  // labels: packed into the reserved bottom band, stacked into rows so that
+  // closely spaced elements (OL1/Sample/OL2, Coupling/EELS ap.) never collide
+  g.font = (11 * S) + 'px ui-monospace,Consolas,monospace';
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  const rowRight = new Array(LBL_ROWS).fill(-1e9);
+  const items = COLUMN.map(e => {
+    const size = fmtLen(beamRadius(r, e.z));
+    return { e: e, x: X(e.z), size: size,
+             w: Math.max(g.measureText(e.label).width, g.measureText(size).width * 0.86) };
+  });
+  for (const it of items) {
+    const left = it.x - it.w / 2;
+    let row = LBL_ROWS - 1;
+    for (let k = 0; k < LBL_ROWS; k++) if (left >= rowRight[k] + 5 * S) { row = k; break; }
+    rowRight[row] = it.x + it.w / 2;
+    const el = it.e;
+    g.fillStyle = el.kind === 'plane'
+      ? PLANE_COL[planeState(el.id, r.chk[el.id]).kind]
+      : el.kind === 'aperture' ? '#cfcfcf'
+      : el.kind === 'source'   ? '#8f8f8f'
+      : (state.power[el.id] > 0 ? '#a0bee6' : '#6b6b6b');
+    const ty = H - BAND + 3 * S + row * LBL_PITCH * S;
+    const tx = Math.min(Math.max(it.x, it.w / 2 + 2 * S), W - it.w / 2 - 2 * S);
+    LABEL_POS[el.id] = { x: it.x / dpr, row: row,
+                         bottom: (ty + LBL_SIZE_DY * S + 11 * S) / dpr };   // CSS px
+    g.font = (11 * S) + 'px ui-monospace,Consolas,monospace';
+    g.fillText(el.label, tx, ty);
+    // primary-beam radius at this plane
+    g.font = (9 * S) + 'px ui-monospace,Consolas,monospace';
+    g.fillStyle = '#6f6f6f';
+    g.fillText(it.size, tx, ty + LBL_SIZE_DY * S);
+    // leader from the label up to the glyph
+    g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1 * S;
+    g.beginPath(); g.moveTo(it.x, mid + hi * 1.22); g.lineTo(it.x, ty - 1 * S); g.stroke();
+  }
+}
+
+/* ================================================================
+   6.  UI
+   ================================================================ */
+const fmt = (v, n = 1) => (isFinite(v) ? v.toFixed(n) : '--');
+const el$ = id => document.getElementById(id);
+
+function buildControls() {
+  // Lens controls live ON the figure, each directly above the lens it drives: the focal
+  // length box on top, the power slider below it. Ids are unchanged so the bindings and
+  // syncInputs carry over untouched.
+  el$('topband').innerHTML = LENSES.map(e =>
+    '<div class="lensctl" id="row_' + e.id + '" title="' + e.label + '">' +
+      '<input type="number" id="f_' + e.id + '" step="1" min="' + F_MIN + '">' +
+      '<input type="range"  id="p_' + e.id + '" min="0" max="' + (SLIDER_STEPS + 1) + '" step="1">' +
+    '</div>').join('');
+
+  // dz is horizontal, tucked under the Sample label -- the sample plane is only ~26 px
+  // from each objective, far too close to share the top band.
+  el$('dzctl').innerHTML =
+    '<input type="range" id="p_dz" min="-1" max="1" step="0.01" title="sample defocus, mm">' +
+    '<input type="number" id="f_dz" step="0.05" min="-1" max="1" title="sample defocus, mm">';
+
+  el$('alpharow').innerHTML =
+    '<div class="row on"><label>&alpha; mrad</label>' +
+      '<input type="range" id="p_al" min="0" max="1000" step="1">' +
+      '<input type="number" id="f_al" step="0.5" min="0.55" max="50"></div>' +
+    '<div class="row"><span class="unit" id="alEcho"></span></div>';
+
+  el$('camrow').innerHTML =
+    '<div class="row on"><label id="clLabel">L (mm)</label>' +
+      '<input type="range" id="p_cl" min="0" max="3.1" step="0.004">' +
+      '<input type="number" id="f_cl" step="5" min="0.5"></div>' +
+    '<div class="row"><span class="unit" id="magEcho"></span></div>';
+
+  el$('disp').innerHTML =
+    '<div class="row on"><label>rays</label>' +
+      '<input type="range" id="p_n" min="3" max="41" step="2">' +
+      '<input type="number" id="f_n" step="2" min="3" max="63"></div>' +
+    '<div class="row on"><label>K &times;</label>' +
+      '<input type="range" id="p_k" min="0" max="3.4" step="0.005">' +
+      '<input type="number" id="f_k" step="5" min="1"></div>' +
+    '<div class="row on"><label>&theta;B</label>' +
+      '<input type="range" id="p_th" min="5" max="200" step="1">' +
+      '<input type="number" id="f_th" step="1" min="0.1"></div>';
+
+  for (const e of LENSES) {
+    el$('p_' + e.id).addEventListener('input', ev => {
+      state.power[e.id] = sliderToPower(+ev.target.value); refresh();
+    });
+    el$('f_' + e.id).addEventListener('change', ev => {
+      const f = +ev.target.value;
+      state.power[e.id] = (isFinite(f) && f > 0) ? Math.min(1 / f, P_MAX) : 0;
+      refresh();
+    });
+  }
+
+  const bind = (rid, nid, set, fromSlider) => {
+    el$(rid).addEventListener('input',  ev => { set(fromSlider(+ev.target.value)); refresh(); });
+    el$(nid).addEventListener('change', ev => { set(+ev.target.value);             refresh(); });
+  };
+  el$('p_al').addEventListener('input', ev => {
+    state.alpha = sliderToAlpha(+ev.target.value); flash(applyIllumination()); refresh();
+  });
+  el$('f_al').addEventListener('change', ev => {
+    state.alpha = Math.min(A_MAX, Math.max(A_MIN, +ev.target.value));
+    flash(applyIllumination()); refresh();
+  });
+
+  bind('p_cl',  'f_cl',  v => { const w = Math.max(0.05, v);
+                               if (state.coupling === 'diff') state.targetL = w; else state.targetM = w; },
+                                                              v => Math.pow(10, v));
+  bind('p_dz',  'f_dz',  v => state.sampleDz = Math.max(-1, Math.min(1, v)),           v => v);
+  bind('p_n',   'f_n',   v => state.nRays  = Math.max(3, Math.min(63, Math.round(v))), v => v);
+  bind('p_k',   'f_k',   v => state.K      = Math.max(1, v),                           v => Math.pow(10, v));
+  bind('p_th',  'f_th',  v => state.thetaB = Math.max(0.1, v),                         v => v);
+
+  // cones swing much wider than the beam, so refit when switching them on
+  el$('cbDiff').addEventListener('change', e => {
+    state.showDiff = e.target.checked;
+    if (state.showDiff) fitK();
+    refresh();
+  });
+  el$('p_th').addEventListener('input', () => { if (state.showDiff) fitK(); });
+  el$('cbMark').addEventListener('change', e => { state.showMark = e.target.checked; refresh(); });
+  el$('cbHoldEL').addEventListener('change', e => { state.holdEL = e.target.checked; flash(null); refresh(); });
+  el$('bFocus').addEventListener('click', () => { flash(focusProbeOnSample());  refresh(); });
+  el$('bColl' ).addEventListener('click', () => { flash(collimateOnSample());   refresh(); });
+  el$('bEels' ).addEventListener('click', () => { flash(matchEelsPlanes());     refresh(); });
+  for (const btn of el$('couple').querySelectorAll('button'))
+    btn.addEventListener('click', () => { state.coupling = btn.dataset.mode; flash(null); refresh(); });
+  el$('bSave' ).addEventListener('click', saveImage);
+  el$('bCopy' ).addEventListener('click', copyImage);
+  el$('bReset').addEventListener('click', () => {
+    for (const e of LENSES) state.power[e.id] = 1 / e.f;
+    state.voaR = BY_ID.VOA.r; state.nRays = 15; state.thetaB = 10;
+    state.targetL = 40; state.targetM = 10; state.coupling = 'diff'; state.sampleDz = 0;
+    state.holdEL = true;  el$('cbHoldEL').checked = true;
+    state.showDiff = true; el$('cbDiff').checked = true;
+    state.alpha = 20; state.illumMode = 'focus';
+    flash(null); fitK(); refresh();
+  });
+}
+
+/** Put the canvas-mounted controls where their elements are. Positions come from the same
+ *  numbers the overlay drew with, so the two cannot disagree. CSS px throughout. */
+function layoutCanvasControls() {
+  const topCss = TOPBAND / dpr;
+  // OL1 and OL2 are only 80 mm apart, which is ~35 px on a narrow window -- narrow the
+  // stacks to the tightest neighbour gap so the number boxes never overlap.
+  const xs = LENSES.map(e => X(e.z) / dpr).sort((a, b) => a - b);
+  let minGap = Infinity;
+  for (let i = 1; i < xs.length; i++) minGap = Math.min(minGap, xs[i] - xs[i - 1]);
+  const wCss = Math.max(28, Math.min(48, Math.floor(minGap) - 3));
+  for (const e of LENSES) {
+    const d = el$('row_' + e.id);
+    if (!d) continue;
+    d.style.left  = (X(e.z) / dpr) + 'px';
+    d.style.top   = '6px';
+    d.style.width = wCss + 'px';
+    d.style.height = (topCss - 10) + 'px';
+  }
+  const dz = el$('dzctl'), pos = LABEL_POS.SMP;
+  if (dz && pos) {
+    dz.style.left = Math.min(Math.max(pos.x, 54), (W / dpr) - 54) + 'px';
+    dz.style.top  = (pos.bottom + 2) + 'px';
+  }
+  const btns = el$('imgbtns');
+  if (btns) btns.style.top = (topCss + 8) + 'px';        // x is pinned right in CSS
+}
+
+/** Composite both canvases onto one opaque bitmap. The HTML controls are not on the
+ *  canvases, so they are never captured. */
+function composite() {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#0b0b0b'; g.fillRect(0, 0, W, H);
+  g.drawImage(cvRays, 0, 0);
+  g.drawImage(cvOvl,  0, 0);
+  return c;
+}
+
+/** Render at 2x, hand the bitmap to `use`, then restore. Everything in the render path is
+ *  synchronous (the Simulator is built with enableTimer = false), so no frame is painted
+ *  at the export size and there is no flicker. */
+function withHiRes(use) {
+  renderScale = 2;
+  resize(); refresh();
+  const c = composite();
+  renderScale = 1;
+  resize(); refresh();
+  use(c);
+}
+
+function saveImage() {
+  withHiRes(c => c.toBlob(b => {
+    const url = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'stem-column.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    flash(['ok', 'Saved stem-column.png (' + c.width + ' x ' + c.height + ').']);
+  }, 'image/png'));
+}
+
+function copyImage() {
+  // clipboard.write must be reached while the click still counts as user activation, and
+  // toBlob is async -- so hand ClipboardItem the *promise* and let it resolve afterwards.
+  let dims = '';
+  const blob = new Promise(res => withHiRes(c => {
+    dims = c.width + ' x ' + c.height;
+    c.toBlob(res, 'image/png');
+  }));
+  if (!(navigator.clipboard && window.ClipboardItem)) {
+    flash(['bad', 'This browser has no image clipboard support. Use save instead.']);
+    return;
+  }
+  navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    .then(() => flash(['ok', 'Figure copied to the clipboard (' + dims + ').']))
+    .catch(err => flash(['bad', 'Could not copy to the clipboard (' + err.name +
+                                '). Use save instead.']));
+}
+
+function fitK() {
+  const r = analyse();
+  // the drawn fan overfills the VOA by 1.25x, so leave headroom for that
+  let maxY = Math.max(state.voaR, ...r.a.nodes.map(p => Math.abs(p.y) * r.u0max));
+  // the Bragg cones can swing far wider than the beam, so fit to them when shown
+  if (state.showDiff)
+    for (const c of coneTraces(r))
+      for (const p of c.t.nodes) maxY = Math.max(maxY, Math.abs(p.y));
+  if (isFinite(maxY) && maxY > 1e-9) state.K = 0.42 * HALF / (sx * maxY);
+}
+
+function syncInputs() {
+  for (const e of LENSES) {
+    const p = state.power[e.id], f = p > 0 ? 1 / p : Infinity;
+    el$('p_' + e.id).value = powerToSlider(p);
+    el$('f_' + e.id).value = isFinite(f) ? +f.toFixed(2) : '';
+    el$('f_' + e.id).placeholder = isFinite(f) ? '' : 'off';
+    el$('row_' + e.id).className = 'lensctl ' + (p > 0 ? 'on' : 'off');
+  }
+  el$('p_al').value = alphaToSlider(state.alpha);
+  el$('f_al').value = +state.alpha.toFixed(2);
+  el$('alEcho').innerHTML = (state.illumMode === 'focus'
+      ? 'focused probe &middot; C2 + C3 set &alpha;'
+      : 'parallel &middot; spot radius &alpha;&thinsp;&times;&thinsp;f<sub>OL2</sub>');
+
+  const isD = state.coupling === 'diff', tgt = isD ? state.targetL : state.targetM;
+  el$('clLabel').innerHTML = isD ? 'L (mm)' : 'M (&times;)';
+  el$('p_cl').value = Math.log10(tgt);  el$('f_cl').value = +tgt.toFixed(2);
+  el$('magEcho').innerHTML = isD
+    ? 'locks Mag = ' + D_EELS + '/L = ' + (D_EELS / state.targetL).toFixed(2) + '&times; at the focal plane'
+    : 'locks L = ' + D_EELS + '/M = ' + (D_EELS / state.targetM).toFixed(2) + ' mm at the focal plane';
+  for (const btn of el$('couple').querySelectorAll('button'))
+    btn.className = (btn.dataset.mode === state.coupling) ? 'on' : '';
+  el$('p_dz').value = state.sampleDz;  el$('f_dz').value = +state.sampleDz.toFixed(2);
+  el$('cbHoldEL').checked = state.holdEL;    // otherwise state and box can drift apart
+  el$('cbDiff').checked   = state.showDiff;
+  el$('cbMark').checked   = state.showMark;
+
+  el$('p_n').value   = state.nRays;          el$('f_n').value   = state.nRays;
+  el$('p_k').value   = Math.log10(state.K);  el$('f_k').value   = Math.round(state.K);
+  el$('p_th').value  = state.thetaB;         el$('f_th').value  = state.thetaB;
+  el$('kEcho').textContent = Math.round(state.K);
+}
+
+function drawReadout(r) {
+  const row  = (k, v) => '<tr><td class="k">' + k + '</td><td class="v">' + v + '</td></tr>';
+  const dim  = (on, s) => on ? s : '<span style="color:#6b6b6b">' + s + '</span>';
+  const plane = (id, label) => {
+    const st = planeState(id, r.chk[id]);
+    const z  = isFinite(st.z) ? fmt(st.z) + ' mm' : '';
+    return row(label, '<span style="color:' + PLANE_COL[st.kind] + '">' + st.mark +
+                      (st.word ? ' ' + st.word : '') + '</span> ' + z);
+  };
+  // A and B of the sample->plane transfer. A is the magnification and only means that at an
+  // image plane; B is the camera length and only means that at a diffraction plane. Show both
+  // at both EELS planes and grey out whichever is not currently meaningful -- the two coupling
+  // modes swap which is which.
+  const list = (zs, cls) => '<span class="' + cls + '">' +
+        (zs.map(z => fmt(z, 0)).join(' &middot; ') || '--') + '</span>';
+  const group = (title, rows) =>
+    '<div class="rgroup"><h3>' + title + '</h3><table>' + rows + '</table></div>';
+
+  el$('readout').innerHTML =
+    group('Planes',
+      row('regime', r.collimated ? '<span class="ac">parallel (TEM)</span>'
+                                 : '<span class="ac">focused probe (STEM)</span>') +
+      plane('SMP', 'sample ' + fmt(Z_SMP, Number.isInteger(Z_SMP) ? 0 : 2)) +
+      plane('EAP', 'EELS aperture 1300') +
+      plane('EFP', 'EELS focal 1500')) +
+    group('Conjugates',
+      row('sample images',      list(r.imagePlanes, 'ac')) +
+      row('diffraction planes', list(r.diffPlanes, 'dp')) +
+      row('illum. crossovers',  list(r.crossovers, ''))) +
+    group('Beam',
+      row('VOA radius',          '<span style="color:#6b6b6b">' + fmt(state.voaR, 2) + ' mm fixed</span>') +
+      row('convergence &alpha;', fmt(r.alpha * 1000, 2) + ' mrad') +
+      row('beam at sample',      r.collimated ? fmtLen(beamRadius(r, Z_SMP)) + ' <span style="color:#6b6b6b">parallel</span>'
+                                              : fmtLen(beamRadius(r, Z_SMP))) +
+      row('probe defocus',       r.collimated ? '<span style="color:#6b6b6b">--</span>'
+                                              : fmt(r.defocus, 2) + ' mm')) +
+    group('Coupling',
+      row('Mag @EELS ap.',           dim(r.chk.EAP.image, fmt(r.magEAP, 3) + '&times;')) +
+      row('cam. length @EELS ap.',   dim(r.chk.EAP.diff,  fmt(r.camEAP, 2) + ' mm')) +
+      row('Mag @EELS focal',         dim(r.chk.EFP.image, fmt(r.magEFP, 3) + '&times;')) +
+      row('cam. length @EELS focal', dim(r.chk.EFP.diff,  fmt(r.camEFP, 2) + ' mm')));
+
+  const bad = [];
+  if (r.imagePlanes.length === 0) bad.push('No sample image forms downstream.');
+  if (r.crossovers.length === 0)  bad.push('No illumination crossover anywhere in the column.');
+  el$('warn').style.display = bad.length ? 'block' : 'none';
+  el$('warn').textContent   = bad.join(' ');
+}
+
+/** msg is null to clear, or [kind, text] with kind 'ok' | 'bad'. */
+function flash(msg) {
+  const b = el$('banner');
+  if (!msg) { b.style.display = 'none'; return; }
+  const ok = msg[0] === 'ok';
+  b.style.display    = 'block';
+  b.style.background = ok ? '#1e2e1e' : '#3a2222';
+  b.style.color      = ok ? '#a5d6a7' : '#ef9a9a';
+  b.textContent      = msg[1];
+}
+
+function refresh() {
+  // ResizeObserver is only delivered during the rendering steps, so a backgrounded or
+  // throttled page can miss it entirely and leave the backing store at the old size.
+  // refresh() runs on every interaction, so make the size self-healing here too.
+  if (renderScale === 1) {
+    const rect = stage.getBoundingClientRect();
+    const wantW = Math.max(320, Math.round(rect.width * Math.min(window.devicePixelRatio || 1, 2)));
+    if (Math.abs(wantW - W) > 1) resize();
+  }
+  syncSampleZ();
+  const r = analyse();
+  syncScene(r);
+  drawOverlay(r);
+  drawReadout(r);
+  syncInputs();
+  layoutCanvasControls();
+  el$('legend').innerHTML =
+    '<span style="color:var(--accent)">&#9644;</span> illumination crossover &nbsp; ' +
+    '<span style="color:var(--diff)">&#9644;</span> diffraction plane &nbsp; ' +
+    '<span style="color:#a0bee6">&#9553;</span> lens (dashed = 1/f is 0) &nbsp; ' +
+    '<span style="color:#cfcfcf">&#9553;</span> aperture &nbsp; ' +
+    '<span style="color:var(--ok)">&#9553;</span> named plane &nbsp; ' +
+    '<span style="color:#6f6f6f">0.80 mm</span> = beam radius there' +
+    (state.showDiff
+      ? ' &nbsp; <span style="color:#ffb74d">&#9585;</span> Bragg +1 &nbsp; ' +
+        '<span style="color:#ce93d8">&#9585;</span> Bragg &minus;1'
+      : '');
+  return r;
+}
+
+/* ================================================================
+   7.  Self-test  (index.html?selftest)
+   ================================================================ */
+function selftest() {
+  const out = [];
+  let all = true;
+  const chk = (name, got, want, tol) => {
+    const ok = Array.isArray(want)
+      ? (got.length === want.length && want.every((w, i) => Math.abs(got[i] - w) <= tol))
+      : Math.abs(got - want) <= tol;
+    out.push((ok ? 'PASS  ' : 'FAIL  ') + name +
+             '  got ' + JSON.stringify(Array.isArray(got) ? got.map(v => +v.toFixed(4)) : +got.toFixed(6)) +
+             '  want ' + JSON.stringify(want));
+    all = all && ok;
+  };
+
+  for (const e of LENSES) state.power[e.id] = 1 / e.f;
+  state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.coupling = 'diff';
+  state.alpha = 20; state.illumMode = 'focus'; state.holdEL = false;
+  state.thetaB = 10; state.showDiff = true;
+  state.targetL = 40; state.targetM = 10;
+  const r = analyse();
+
+  chk('illum crossovers (mm)',   r.crossovers,          [400, 640, 920, 1500], 1e-9);
+  chk('sample images (mm)',      r.imagePlanes,         [920, 1500],           1e-9);
+  chk('diffraction planes (mm)', r.diffPlanes,          [720, 1300],           1e-9);
+  chk('magnification',           r.magEFP,              5,     1e-9);
+  chk('camera length (mm)',      r.camEAP,              40,    1e-9);
+  // the same number as the textbook L = f_OL2 * M(BFP -> aperture)
+  chk('camL = f_OL2 * M(720->1300)',
+      40 * Math.abs(traceFrom(720, 1, 0, Z_MAX).at(Z_EAP).y /
+                    traceFrom(720, 1, 0, Z_MAX).at(720).y), 40, 1e-9);
+  chk('convergence (mrad)',      r.alpha * 1000,        20,    1e-9);
+  chk('probe radius (um)',       r.probeR,              0,     1e-12);
+  chk('sample conjugate',        r.chk.SMP.ok ? 1 : 0,  1,     0);
+  chk('EELS ap. = diff plane',   r.chk.EAP.ok ? 1 : 0,  1,     0);
+  chk('EELS focal conjugate',    r.chk.EFP.ok ? 1 : 0,  1,     0);
+
+  // radial exaggeration must not move a single reported plane
+  const kSave = state.K, before = JSON.stringify([r.imagePlanes, r.diffPlanes]);
+  state.K = kSave * 7.3;
+  const r2 = analyse();
+  chk('planes invariant under K', JSON.stringify([r2.imagePlanes, r2.diffPlanes]) === before ? 1 : 0, 1, 0);
+  state.K = kSave;
+
+  // --- per-plane beam radius (mm) ---
+  chk('beam radius at VOA',  beamRadius(r, Z_VOA), 1.6, 1e-12);
+  chk('beam radius at EAP',  beamRadius(r, Z_EAP), 0.8, 1e-12);
+  chk('beam radius at SMP',  beamRadius(r, Z_SMP), 0,   1e-12);
+  chk('beam radius at PL4',  beamRadius(r, BY_ID.PL4.z), 1.2, 1e-12);
+  chk('camera length = radius/alpha', beamRadius(r, Z_EAP) / r.alpha, r.camEAP, 1e-9);
+
+  // --- focus the probe with C3 (was OL1) ---
+  const restore = () => { for (const e of LENSES) state.power[e.id] = 1 / e.f;
+                          state.holdEL = false; state.sampleDz = 0;
+                          state.alpha = 20; state.illumMode = 'focus'; };
+  restore();
+  state.power.C2 = 1 / 61; state.power.C3 = 1 / 61;   // detune both, then solve back
+  const fRes = focusProbeOnSample();
+  chk('focus: banner ok',   fRes[0] === 'ok' ? 1 : 0,  1, 0);
+  chk('focus: f_C2 (mm)',   1 / state.power.C2,      100, 1e-9);
+  chk('focus: f_C3 (mm)',   1 / state.power.C3,       50, 1e-9);
+  chk('focus: alpha (mrad)', analyse().alpha * 1000,  20, 1e-9);
+  chk('focus: OL1 untouched', 1 / state.power.OL1,    40, 1e-12);
+
+  // alpha round-trips through the C2 + C3 solve in both modes
+  for (const m of ['focus', 'collimate']) {
+    for (const a of [0.55, 2, 10, 20, 50]) {
+      restore(); state.alpha = a; state.illumMode = m;
+      applyIllumination();
+      chk('alpha ' + m + ' ' + a, analyse().alpha * 1000, a, 1e-6);
+    }
+  }
+  restore();
+
+  // --- collimate: C2 + C3 set the mode AND alpha together ---
+  // at the default alpha = 20 the spot is alpha * f_OL2 = 0.8 mm; the old 34.375 mm C3
+  // corresponds to alpha = 7.2727 mrad, so assert that case explicitly
+  restore(); state.alpha = 20;
+  const c20 = collimateOnSample(), r20 = analyse();
+  chk('collimate a=20: banner ok', c20[0] === 'ok' ? 1 : 0, 1, 0);
+  chk('collimate a=20: alpha',     r20.alpha * 1000, 20, 1e-9);
+  chk('collimate a=20: r = a*fOL2', Math.abs(r20.yRef) * r20.u0max, 0.8, 1e-9);
+  chk('collimate a=20: C2 (mm)',   1 / state.power.C2, 63.157894736, 1e-6);
+  chk('collimate a=20: C3 (mm)',   1 / state.power.C3, 48.529411764, 1e-6);
+
+  restore(); state.alpha = 200 / 27.5;                 // 7.2727... mrad
+  const cRes = collimateOnSample(), rc = analyse();
+  chk('collimate: banner ok',    cRes[0] === 'ok' ? 1 : 0,           1, 0);
+  chk('collimate: C2 (mm)',      1 / state.power.C2,               100, 1e-6);
+  chk('collimate: f_C3 (mm)',    1 / state.power.C3,            34.375, 1e-6);
+  chk('collimate: illum crossovers', rc.crossovers, [400, 560, 720, 1300], 1e-9);
+  chk('collimate: images UNMOVED',   rc.imagePlanes, [920, 1500],           1e-9);
+  chk('collimate: diffraction',      rc.diffPlanes,  [720, 1300],           1e-9);
+  chk('collimate: flagged parallel', rc.collimated ? 1 : 0,          1, 0);
+  chk('collimate: sample state',
+      planeState('SMP', rc.chk.SMP).kind === 'alt' ? 1 : 0, 1, 0);
+  chk('collimate: beam at sample (mm)', beamRadius(rc, Z_SMP), 0.290909090909, 1e-8);
+
+  // --- Bragg cones must span the illuminated area, not start from a point ---
+  const coneSpan = rr => {
+    let m = 0;
+    for (const c of coneTraces(rr)) m = Math.max(m, Math.abs(c.t.nodes[0].y));
+    return m;
+  };
+  chk('cones span beam when parallel', coneSpan(rc), beamRadius(rc, Z_SMP), 1e-12);
+  restore();
+  chk('cones start at a point when focused', coneSpan(analyse()), 0, 1e-12);
+
+
+  // --- matched EELS coupling, both regimes ---
+  const eels = (mode, tgt, want, extra) => {
+    restore(); state.coupling = mode;
+    if (mode === 'diff') state.targetL = tgt; else state.targetM = tgt;
+    if (extra) extra();
+    const tag = 'EELS ' + mode + '=' + tgt;
+    const res = matchEelsPlanes(), rr = analyse();
+    chk(tag + ': banner', res[0] === (want ? 'ok' : 'bad') ? 1 : 0, 1, 0);
+    if (!want) return;
+    if (mode === 'diff') {
+      chk(tag + ': camera length @ap', rr.camEAP, tgt, 1e-3);
+      chk(tag + ': Mag@focal = D/L',   rr.magEFP * tgt, D_EELS, 1e-6);
+      chk(tag + ': planes', (rr.chk.EAP.diff && rr.chk.EFP.image) ? 1 : 0, 1, 0);
+    } else {
+      chk(tag + ': Mag @ap',           rr.magEAP, tgt, 1e-3);
+      chk(tag + ': L@focal = D/M',     rr.camEFP * tgt, D_EELS, 1e-5);
+      chk(tag + ': planes', (rr.chk.EAP.image && rr.chk.EFP.diff) ? 1 : 0, 1, 0);
+    }
+    if (Array.isArray(want))
+      chk(tag + ': PL1/PL4/EL (mm)',
+          [1 / state.power.PL1, 1 / state.power.PL4, 1 / state.power.EL], want, 2e-3);
+    chk(tag + ': all f positive',
+        [state.power.PL1, state.power.PL4, state.power.EL].every(p => p > 0 && p <= P_MAX) ? 1 : 0, 1, 0);
+  };
+  eels('diff', 40,   [120, 150, 375]);        // the documented default must not drift
+  eels('diff', 80,   true);
+  eels('diff', 10,   true);
+  eels('diff', 400,  true);                    // reached via the opposite image parity
+  eels('diff', 5000, true);                    // reachable now the cap is f >= 2 mm
+  // matching is a post-sample property, so parallel illumination must give the same answer
+  eels('diff', 40,   [120, 150, 375], () => { state.power.C3 = 1 / 34.375; });
+  // image coupling: image at the aperture, diffraction at the focal plane
+  eels('img',  10,   true);
+  eels('img',  1,    true);
+  eels('img',  20,   true);
+  eels('img',  80,   true);                    // was missed until the B/C role swap
+  eels('img',  120,  true);                    // both were out of reach at the old f >= 10 mm
+  eels('img',  200,  true);                    // cap; the f >= 2 mm cap brings them in
+  eels('img',  400,  true);                    // about the ceiling: M_max ~ 800/f_min
+  eels('img',  5000, true);                    // no triple reaches this; the four-lens stage does
+
+  // M = 1.5 has no three-lens solution among the excited lenses, so the last-resort stage
+  // must switch one on and say so.
+  restore(); state.coupling = 'img'; state.targetM = 1.5;
+  const lr = matchEelsPlanes(), rlr = analyse();
+  chk('last resort: solves',      lr[0] === 'ok' ? 1 : 0, 1, 0);
+  chk('last resort: announced',   /Switched on/.test(lr[1]) ? 1 : 0, 1, 0);
+  chk('last resort: M reached',   rlr.magEAP, 1.5, 1e-3);
+  chk('last resort: turned one on',
+      (state.power.PL2 > 0 || state.power.PL3 > 0) ? 1 : 0, 1, 0);
+
+  // ...and a target that does NOT need them must leave them alone
+  restore(); state.coupling = 'diff'; state.targetL = 400;
+  matchEelsPlanes();
+  chk('gentle: PL2 untouched', state.power.PL2, 0, 0);
+  chk('gentle: PL3 untouched', state.power.PL3, 0, 0);
+
+  // hold EL: the EELS lens must come back bit-identical in both regimes
+  for (const m of ['diff', 'img']) {
+    restore(); state.holdEL = true; state.coupling = m;
+    state.targetL = 80; state.targetM = 10;      // NOT 40: the column already meets L = 40,                              // so the guard would short-circuit the test
+    const elBefore = state.power.EL;
+    const hr = matchEelsPlanes();
+    chk('holdEL ' + m + ': EL unchanged', state.power.EL, elBefore, 0);
+    if (hr[0] === 'ok') chk('holdEL ' + m + ': says so', /EL held fixed/.test(hr[1]) ? 1 : 0, 1, 0);
+  }
+  state.holdEL = false;
+
+  // --- log focal-length slider round-trips across the whole span ---
+  chk('slider: off maps to 0',      sliderToPower(0),            0,     0);
+  chk('slider: off round-trips',    powerToSlider(0),            0,     0);
+  chk('slider: top is f_min',       1 / sliderToPower(SLIDER_STEPS + 1), F_MIN, 1e-9);
+  chk('slider: bottom step is f_max', 1 / sliderToPower(1),      F_MAX, 1e-6);
+  for (const f of [2, 4, 10, 40, 120, 375, 1000, 5000]) {
+    const back = sliderToPower(powerToSlider(1 / f));
+    chk('slider round-trip f=' + f, 1 / back, f, f * 0.005);   // ~0.86% per step
+  }
+
+  // --- shipped defaults, and the already-matched guard ---
+  restore(); state.holdEL = true; state.coupling = 'diff'; state.targetL = 40;
+  const povBefore = PROJ.map(id => state.power[id]);
+  const already = matchEelsPlanes();
+  chk('guard: reports ok',        already[0] === 'ok' ? 1 : 0, 1, 0);
+  chk('guard: says already',      /already at/.test(already[1]) ? 1 : 0, 1, 0);
+  chk('guard: nothing moved',     PROJ.map(id => state.power[id]), povBefore, 0);
+  chk('guard: PL2/PL3 still off', state.power.PL2 + state.power.PL3, 0, 0);
+
+  // --- four lenses at once, where no triple exists ---
+  const quad = (mode, tgt) => {
+    restore(); state.coupling = mode;
+    if (mode === 'diff') state.targetL = tgt; else state.targetM = tgt;
+    const elBefore = state.power.EL;
+    const res = matchEelsPlanes(), rr = analyse();
+    const tag = 'quad ' + mode + '=' + tgt;
+    chk(tag + ': solves', res[0] === 'ok' ? 1 : 0, 1, 0);
+    chk(tag + ': hit target', mode === 'diff' ? rr.camEAP : rr.magEAP, tgt, Math.max(1e-3, tgt * 1e-4));
+    chk(tag + ': planes', (mode === 'diff' ? (rr.chk.EAP.diff && rr.chk.EFP.image)
+                                           : (rr.chk.EAP.image && rr.chk.EFP.diff)) ? 1 : 0, 1, 0);
+    chk(tag + ': EL untouched', state.power.EL, elBefore, 0);
+    chk(tag + ': f all in range',
+        PROJ.every(id => state.power[id] === 0 ||
+                         (state.power[id] > 0 && state.power[id] <= P_MAX)) ? 1 : 0, 1, 0);
+  };
+  quad('img',  800);
+  quad('diff', 16000);
+  restore();
+
+  // --- sample defocus ---
+  restore(); state.coupling = 'diff'; state.targetL = 40;
+  for (const dz of [1, -1]) {
+    state.sampleDz = dz;
+    const rd = analyse();
+    chk('dz=' + dz + ': sample z',       Z_SMP, SMP_Z0 + dz, 1e-12);
+    chk('dz=' + dz + ': beam radius mm', beamRadius(rd, Z_SMP), 0.02, 1e-12);
+    chk('dz=' + dz + ': defocus mm',     rd.defocus, -dz, 1e-12);
+    // every conjugate is referenced to Z_REF now, so NOTHING optical moves with the specimen
+    chk('dz=' + dz + ': diffraction unmoved', rd.diffPlanes, [720, 1300], 1e-9);
+    chk('dz=' + dz + ': images unmoved too',  rd.imagePlanes, [920, 1500], 1e-9);
+  }
+  // and the EELS solve must give the same answer wherever the specimen sits
+  const atDz = dz => { restore(); state.sampleDz = dz; state.coupling = 'diff'; state.targetL = 80;
+                       matchEelsPlanes();
+                       return [state.power.PL1, state.power.PL4, state.power.EL]; };
+  const s0 = atDz(0), sp = atDz(1), sm = atDz(-1);
+  chk('EELS solve is dz-independent (+1)', sp, s0, 1e-15);
+  chk('EELS solve is dz-independent (-1)', sm, s0, 1e-15);
+
+  // cones still leave from the SPECIMEN, not the reference plane
+  restore(); state.sampleDz = 1;
+  const rc2 = analyse();
+  chk('cones start at the specimen',
+      coneTraces(rc2)[0].t.nodes[0].z, SMP_Z0 + 1, 1e-12);
+
+  restore();
+  state.sampleDz = 5; syncSampleZ();
+  chk('dz clamped to +1', state.sampleDz, 1, 0);
+  state.sampleDz = 0; syncSampleZ();
+
+  restore(); state.coupling = 'diff'; state.targetL = 40; state.targetM = 10;
+
+  const txt = out.join('\n');
+  console.log(txt);
+  const b = el$('banner');
+  b.style.display    = 'block';
+  b.style.background = all ? '#1e2e1e' : '#3a2222';
+  b.style.color      = all ? '#a5d6a7' : '#ef9a9a';
+  b.textContent = (all ? 'SELF-TEST PASSED\n\n' : 'SELF-TEST FAILED\n\n') + txt;
+  // the suite mutates state freely; hand the app back exactly as it ships
+  for (const e of LENSES) state.power[e.id] = 1 / e.f;
+  state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.alpha = 20; state.illumMode = 'focus';
+  state.coupling = 'diff'; state.targetL = 40; state.targetM = 10;
+  state.holdEL = true; state.thetaB = 10; state.showDiff = true; state.showMark = true;
+
+  window.__selftest = { all: all, out: out };
+}
+
+/* ================================================================
+   8.  Boot
+   ================================================================ */
+(async () => {
+  buildControls();
+  resize();
+  await buildScene();
+  fitK();
+  refresh();
+  if (location.search.indexOf('selftest') >= 0) selftest();
+  window.__api = { state, analyse, refresh, COLUMN, traceFrom, SCAN_N, QUAD,
+                   X, Y, get W() { return W; }, get H() { return H; },
+                   get scene() { return scene; }, get sim() { return sim; } };
+  new ResizeObserver(() => { resize(); refresh(); }).observe(stage);
+  window.addEventListener('resize', () => { resize(); refresh(); });
+})();
+</script>
+</body>
+</html>
