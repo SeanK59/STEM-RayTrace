@@ -28,11 +28,21 @@ header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
 /* controls mounted on the figure, directly above the element each one drives */
 #topband,#dzctl,#imgbtns{position:absolute;left:0;top:0}
 #topband{width:100%;height:0}
-.lensctl{position:absolute;width:48px;transform:translateX(-50%);text-align:center}
+/* The stack is a transparent box wider than its own controls, so it must not eat clicks aimed
+   at a neighbour's slider -- hence pointer-events off on the div and back on for the inputs.
+   The native number spinner costs a flat 15px of content box whatever the font size, which at
+   these widths is three characters, so it is suppressed; `appearance:textfield` alone no longer
+   does that in current Chrome, the ::-webkit- rules are what actually work. Width is set by
+   layoutCanvasControls. */
+.lensctl{position:absolute;transform:translateX(-50%);text-align:center;pointer-events:none}
 .lensctl input[type=number]{width:100%;padding:1px 2px;font-size:9.5px;line-height:1.25;
-                            text-align:center;border-radius:2px}
+                            text-align:center;border-radius:2px;display:block;pointer-events:auto;
+                            appearance:textfield;-moz-appearance:textfield}
+.lensctl input[type=number]::-webkit-outer-spin-button,
+.lensctl input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance:none;
+                            margin:0;display:none}
 .lensctl input[type=range]{writing-mode:vertical-lr;direction:rtl;-webkit-appearance:slider-vertical;
-                           width:22px;height:62px;margin:3px auto 0;display:block}
+                           width:22px;height:62px;margin:3px auto 0;display:block;pointer-events:auto}
 .lensctl.off input[type=number]{color:#6b6b6b}
 .lensctl.off input[type=range]{accent-color:#5a5a5a;opacity:.55}
 #dzctl{display:flex;align-items:center;gap:4px;transform:translateX(-50%);width:122px}
@@ -148,7 +158,8 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
       <div id="disp"></div>
       <label class="chk"><input type="checkbox" id="cbDiff" checked> Show &plusmn;1 Bragg cones</label>
       <label class="chk"><input type="checkbox" id="cbMark" checked> Show conjugate-plane markers</label>
-      <div class="hint">Nothing in this panel changes a computed value.</div>
+      <div class="hint">Cosmetic, with one exception: &theta;<sub>B</sub> sets the
+        &plusmn;1&nbsp;Bragg spacing reported at the aperture. Nothing here moves a plane.</div>
     </div>
   </div>
 </div>
@@ -164,17 +175,22 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   planes instead, which is why they cannot be used to classify planes.
   <br><br>
   <b>The number under each label</b> is the primary beam <b>radius</b> at that plane. The VOA is fixed at
-  <b>0.40&nbsp;mm</b> radius, which together with C2 and C3 sets the convergence semi-angle, the probe size, and
-  which rays are physically blocked.
+  <b>30&nbsp;&micro;m</b> radius, which together with C2 and C3 sets the convergence semi-angle, the probe size, and
+  which rays are physically blocked. Element positions are measured off the microscope; the condenser and
+  objective focal lengths still come out round because the structure is natural (C1's focal length is the
+  source distance, C2&nbsp;+&nbsp;C3 sum to their own spacing, OL1&nbsp;=&nbsp;OL2&nbsp;=&nbsp;half the 44&nbsp;mm
+  objective gap), while the projectors carry whatever the measured spacings actually give.
   <br><br>
   <b>Lens sliders are logarithmic in focal length</b>, spanning 10000&nbsp;mm down to the 2&nbsp;mm strength limit at
-  about 0.86% per step, with <b>off</b> at the bottom of travel and stronger upwards. That limit is what bounds the
-  EELS solver: reach goes roughly as M<sub>max</sub>&nbsp;&asymp;&nbsp;800/f<sub>min</sub>, so 2&nbsp;mm buys
-  magnification to about 400&times; and camera length to about 8000&nbsp;mm. It is the lens strength that binds, not
-  the spacing between the projector lenses.
+  about 0.86% per step, with <b>off</b> at the bottom of travel and stronger upwards. That limit is what bounds
+  everything else. On the EELS solver, 2&nbsp;mm buys magnification to about <b>4000&times;</b> and camera length to
+  about <b>30000&nbsp;mm</b> &mdash; though only the innermost part of that (M&nbsp;0.02&ndash;100,
+  L&nbsp;0.5&ndash;1000&nbsp;mm) is reachable with three lenses, and the rest needs the four-lens stage. It also
+  sets both ends of the &alpha; slider, since C2 is the lens that runs into the floor there. It is the lens
+  strength that binds, not the spacing between the projector lenses.
   <br><br>
   <b>Radial exaggeration <code>K</code> is cosmetic.</b> It (currently <span id="kEcho">K</span>&times;) is pure
-  vertical zoom &mdash; the beam is a fraction of a mm across in a 1500&nbsp;mm column, so it has to be stretched to be
+  vertical zoom &mdash; the beam is a fraction of a mm across in a 1595&nbsp;mm column, so it has to be stretched to be
   seen. That is exact rather than a cheat: an ideal thin lens is perfectly linear in
   (<i>y</i>, d<i>y</i>/d<i>z</i>), so scaling every radial quantity while leaving <i>z</i> and every focal length alone
   reproduces the identical diagram, and no reported number moves.
@@ -184,28 +200,36 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   when the sample does: a ray leaving the sample parallel to the axis stays parallel until OL2, so they are set by OL2
   and downstream only. The image planes do move.
   <br><br>
-  <b>Reference plane vs specimen.</b> The <b>reference plane</b> at z&nbsp;=&nbsp;640, midway between OL1 and OL2, is
+  <b>Reference plane vs specimen.</b> The <b>reference plane</b> at z&nbsp;=&nbsp;785, midway between OL1 and OL2, is
   the objective's nominal object plane and never moves &mdash; every conjugate, camera length, magnification and solve
   is referenced to it, just as a real column's projectors are aligned to a fixed height. The <b>specimen</b> sits at
-  640&nbsp;+&nbsp;dz and affects only the Bragg cone origin, the beam radius on the specimen, the probe-defocus
+  785&nbsp;+&nbsp;dz and affects only the Bragg cone origin, the beam radius on the specimen, the probe-defocus
   readout and its own marker. Sweeping dz therefore moves nothing optical; it just takes the probe off the specimen.
   <br><br>
   <b>The two illumination modes</b> are both C2&nbsp;+&nbsp;C3, because the condenser is what sets illumination.
   Those two lenses together fix the mode <i>and</i> the convergence angle: <b>&alpha; = |marginal ray height at OL2| /
   f<sub>OL2</sub></b>, the slope OL2 imparts to the marginal ray. Focused, that is the usual convergence semi-angle;
   parallel, it is the angle OL2 focuses the illumination to, and the illuminated radius is exactly
-  <b>r&nbsp;=&nbsp;&alpha;&thinsp;f<sub>OL2</sub></b>. The &alpha; slider spans 0.55&ndash;50&nbsp;mrad and applies
-  live, keeping whichever mode you last chose; the VOA stays fixed at 0.40&nbsp;mm. Below about 0.14&nbsp;mrad focused
-  the solve refuses. The slider bottoms out at 0.55&nbsp;mrad, comfortably above that floor, so every position
-  solves. Shrinking the aperture is what buys smaller angles on a real column, which is why the 5&nbsp;mrad
-  default is set that way rather than by straining the condensers.
+  <b>r&nbsp;=&nbsp;&alpha;&thinsp;f<sub>OL2</sub></b>. The &alpha; slider spans 0.05&ndash;39.5&nbsp;mrad and applies
+  live, keeping whichever mode you last chose; the VOA stays fixed at 30&nbsp;&micro;m. While C2 and C3 sit on the
+  afocal relay,
+  <b>&alpha;&nbsp;=&nbsp;r<sub>VOA</sub>&thinsp;(f<sub>C3</sub>/f<sub>C2</sub>)&thinsp;/&thinsp;f<sub>OL1</sub></b>,
+  which on this column is 1.364&nbsp;&times;&nbsp;f<sub>C3</sub>/f<sub>C2</sub>&nbsp;mrad, so the 2&nbsp;mm strength
+  limit puts the focused reach at 0.047&ndash;39.5&nbsp;mrad and the slider sits just inside both ends:
+  <b>every position solves with the probe focused</b>, and the 15&nbsp;mrad default is C2&nbsp;5 with C3&nbsp;55.
+  That ceiling is why the objective gap is 44&nbsp;mm &mdash; &alpha;<sub>max</sub>&nbsp;=&nbsp;0.87/f<sub>OL1</sub>,
+  so a wider gap would put the column's 39&nbsp;mrad working point out of reach.
+  <b>Parallel illumination is a far narrower window</b> &mdash; a 30&nbsp;&micro;m aperture can only be opened out so
+  far before C2 hits the floor, which happens at about <b>1.97&nbsp;mrad</b> (a 43&nbsp;&micro;m illuminated radius).
+  Above that the solve refuses and says so rather than returning something wrong; the slider is deliberately
+  sized to the focused mode, which is the one this column is for.
   <br><br>
   <b>The two EELS coupling modes</b> are exact mirrors of one another, and mutually exclusive:
   <i>diffraction-coupled</i> puts the diffraction pattern on the entrance aperture and the sample image on the EELS
   focal plane; <i>image-coupled</i> swaps them. Either pairing uses up two degrees of freedom, so a two-lens solve
   would leave the third quantity as whatever fell out &mdash; PL1 is the lens that buys it back. In diffraction
-  coupling the knob is <b>camera length L</b> and Mag&nbsp;=&nbsp;200/L follows; in image coupling the knob is
-  <b>magnification M</b> and L&nbsp;=&nbsp;200/M at the focal plane follows (200&nbsp;mm being the gap between the two
+  coupling the knob is <b>camera length L</b> and Mag&nbsp;=&nbsp;45/L follows; in image coupling the knob is
+  <b>magnification M</b> and L&nbsp;=&nbsp;45/M at the focal plane follows (45&nbsp;mm being the gap between the two
   EELS planes). Because both conditions live entirely in the post-sample matrix, <b>matching works identically under
   focused and parallel illumination</b> &mdash; the same PL1/PL4/EL solve either way.
   <br><br>
@@ -218,15 +242,28 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   the plane is not of the matching kind, because that is the only place each means what it is called.
   <br><br>
   Camera length defined this way is the same number as the textbook L&nbsp;=&nbsp;f<sub>OL2</sub>&thinsp;M &mdash;
-  OL2's back focal plane at z&nbsp;=&nbsp;720 is conjugate to the aperture at M&nbsp;=&nbsp;&minus;1, so
-  40&nbsp;&times;&nbsp;1&nbsp;=&nbsp;40&nbsp;mm. It is perfectly meaningful in STEM: it is what decides which
-  scattering angles get inside the aperture.
+  OL2's back focal plane at z&nbsp;=&nbsp;829 is conjugate to the aperture at
+  M&nbsp;=&nbsp;&minus;1.2818, so 22&nbsp;&times;&nbsp;1.2818&nbsp;=&nbsp;28.2&nbsp;mm &mdash; the two definitions
+  are the same number, always, whenever the aperture really is a diffraction plane. It is perfectly meaningful in
+  STEM: it is what decides which scattering angles get inside the aperture. Note that the beam radius the figure
+  prints at the aperture is exactly <b>L&thinsp;&alpha;</b>, so it says nothing about the element spacings &mdash;
+  at the shipped 28.2&nbsp;mm camera length a focused 39&nbsp;mrad probe puts it at 1.10&nbsp;mm, which is the
+  measurement the projector defaults are set from.
   <br><br>
   <b>Bragg cones</b> are a construction: the illumination re-emitted at &plusmn;&theta;<sub>B</sub>, amber for +1 and
   violet for &minus;1. Each cone ray leaves from its own primary ray's position on the sample, so a focused probe gives
   cones from a point and parallel illumination gives cones across the whole illuminated width. They merge at every
   image plane and spread into separated discs at every diffraction plane, which is what a CBED pattern shows &mdash;
   but the exact plane positions come from the paraxial solver, not from the cones.
+  <br><br>
+  <b>The &plusmn;1 Bragg spacing</b> in the readout is the centre-to-centre distance between those two discs at
+  the EELS aperture, and it is exactly <b>2&thinsp;L&thinsp;&theta;<sub>B</sub></b>: every cone ray is its own
+  primary ray displaced by L&thinsp;&theta;<sub>B</sub>, so the separation does not care how wide the direct beam
+  is, whether the illumination is focused or parallel, or where the specimen sits along <code>dz</code>. That
+  makes it a <b>camera-length calibration</b>: photograph a known d-spacing, measure the distance between the
+  &plusmn;g spots, and <b>L&nbsp;=&nbsp;spacing&nbsp;/&nbsp;(2&thinsp;&theta;<sub>B</sub>)</b>. Mind the factor of
+  two at each end &mdash; &theta;<sub>B</sub> here is the <i>deflection</i> angle of the scattered beam,
+  &lambda;/d, which is twice the Bragg angle; and the direct beam to a single spot is half the number shown.
   <br><br>
   Ideal thin lenses only; no spherical or chromatic aberration, no space charge, no lens bore limits.
   Positive focal lengths only. Element positions are fixed.
@@ -245,22 +282,31 @@ const RO = module.exports;
    1.  Column configuration -- the single source of truth.
        z in mm from the source crossover.  f in mm.
    ================================================================ */
+// Element positions are MEASURED off the microscope, so they are not round. The condenser and
+// objective focal lengths still are, because the structure is natural: C1 collimates the source
+// (f = the 120 mm source distance), C2 + C3 sum to their own 60 mm spacing so they form an afocal
+// relay, and OL1 = OL2 = half the 44 mm objective gap puts the sample on OL1's back focal plane
+// and OL2's front focal plane. C3 -> PL1 is 610 mm and PL4 -> aperture is 400 mm with EL centred,
+// all measured. The projectors carry what the measured spacings actually give: PL1/PL4/EL are the
+// exact solve for a 28.200 mm camera length at the EELS aperture, which is the value the real
+// column runs -- at 39 mrad it puts the direct beam at 1.10 mm radius on the aperture, measured.
+// Their extra digits are load-bearing: rounding them to 4 dp moves the EELS planes by ~3e-4 mm.
 const COLUMN = [
   { id:'SRC', label:'Source',     z:    0, kind:'source' },
-  { id:'C1',  label:'C1',         z:  100, kind:'lens',     f: 100 },
-  { id:'VOA', label:'VOA',        z:  200, kind:'aperture', r: 0.4 },
-  { id:'C2',  label:'C2',         z:  300, kind:'lens',     f: 100 },
-  { id:'C3',  label:'C3',         z:  450, kind:'lens',     f:  50 },
-  { id:'OL1', label:'OL1',        z:  600, kind:'lens',     f:  40 },
-  { id:'SMP', label:'Sample',     z:  640, kind:'plane',    marks:'image' },
-  { id:'OL2', label:'OL2',        z:  680, kind:'lens',     f:  40 },
-  { id:'PL1', label:'PL1',        z:  800, kind:'lens',     f: 120 },
-  { id:'PL2', label:'PL2',        z:  900, kind:'lens',     f: Infinity },
-  { id:'PL3', label:'PL3',        z: 1000, kind:'lens',     f: Infinity },
-  { id:'PL4', label:'PL4',        z: 1100, kind:'lens',     f: 150 },
-  { id:'EL',  label:'EL',         z: 1250, kind:'lens',     f: 375 },
-  { id:'EAP', label:'EELS ap.',   z: 1300, kind:'plane',    marks:'diff'  },
-  { id:'EFP', label:'EELS focal', z: 1500, kind:'plane',    marks:'image' },
+  { id:'C1',  label:'C1',         z:  120, kind:'lens',     f: 120 },
+  { id:'VOA', label:'VOA',        z:  180, kind:'aperture', r: 0.030 },
+  { id:'C2',  label:'C2',         z:  240, kind:'lens',     f:   5 },
+  { id:'C3',  label:'C3',         z:  300, kind:'lens',     f:  55 },
+  { id:'OL1', label:'OL1',        z:  763, kind:'lens',     f:  22 },
+  { id:'SMP', label:'Sample',     z:  785, kind:'plane',    marks:'image' },
+  { id:'OL2', label:'OL2',        z:  807, kind:'lens',     f:  22 },
+  { id:'PL1', label:'PL1',        z:  910, kind:'lens',     f:  66.6794389630 },
+  { id:'PL2', label:'PL2',        z: 1030, kind:'lens',     f: Infinity },
+  { id:'PL3', label:'PL3',        z: 1090, kind:'lens',     f: Infinity },
+  { id:'PL4', label:'PL4',        z: 1150, kind:'lens',     f:  41.3326263201 },
+  { id:'EL',  label:'EL',         z: 1350, kind:'lens',     f:  91.3748845769 },
+  { id:'EAP', label:'EELS ap.',   z: 1550, kind:'plane',    marks:'diff'  },
+  { id:'EFP', label:'EELS focal', z: 1595, kind:'plane',    marks:'image' },
 ];
 const BY_ID     = Object.fromEntries(COLUMN.map(e => [e.id, e]));
 const LENSES = COLUMN.filter(e => e.kind === 'lens');
@@ -275,20 +321,28 @@ const Z_EAP = BY_ID.EAP.z, Z_EFP = BY_ID.EFP.z, Z_VOA = BY_ID.VOA.z;
 const SMP_Z0 = (BY_ID.OL1.z + BY_ID.OL2.z) / 2;      // nominal: midway between the objectives
 const Z_REF  = SMP_Z0;
 let   Z_SMP  = SMP_Z0;
-const Z_MIN = -60, Z_MAX = 1560, Z_SPAN = Z_MAX - Z_MIN;
+const Z_MIN = -60, Z_MAX = 1655, Z_SPAN = Z_MAX - Z_MIN;
 // Strongest lens allowed. 1/f cap -> f_min = 2 mm, which is stiff but physically defensible
-// (real magnetic objectives run 1.5-3 mm). This is what bounds the EELS solver's reach:
-// magnification tops out at roughly 800/f_min, so 10 mm gave M <= 80 and 2 mm gives M <= 400.
+// (real magnetic objectives run 1.5-3 mm). This is what bounds the EELS solver's reach, and it
+// also sets both ends of the alpha slider, since C2 is the lens that runs into the floor there.
+// See the README for the measured reach at this and at other caps.
 const P_MAX = 0.5;
 const F_MIN = 1 / P_MAX, F_MAX = 10000;   // slider span in focal length, mm
 
 /** Lens sliders are logarithmic in FOCAL LENGTH with a reserved "off" at the bottom, so a
- *  375 mm and a 4 mm lens are equally easy to dial. Linear-in-power would put every default
+ *  91 mm and a 4 mm lens are equally easy to dial. Linear-in-power would put every default
  *  in the bottom few percent of travel once the cap is this high. ~0.86% per step. */
 const SLIDER_STEPS = 999;
-// alpha slider, logarithmic over the range C2 + C3 can actually deliver: the focused floor
-// is 0.5405 mrad at f >= 2 mm, so 0.55 leaves no dead travel.
-const A_MIN = 0.55, A_MAX = 50;      // mrad
+// alpha slider, logarithmic over the range C2 + C3 can actually deliver FOCUSED. While C2 and C3
+// form the afocal relay, alpha = r_VOA * (f_C3/f_C2) / f_OL1 = (30/22) * f_C3/f_C2 mrad, so the
+// f >= 2 mm cap puts the focused reach at 1.3636*(2/58) = 0.047 up to 1.3636*(58/2) = 39.545 mrad;
+// 0.05 and 39.5 sit just inside both ends and leave no dead travel. That ceiling is why the
+// objective gap is 44 mm: the column is run at 39 mrad, and alpha_max = 0.87/f_OL1 puts 39 mrad
+// out of reach for any gap above about 44.6 mm. PARALLEL illumination is a much narrower window --
+// the 30 um aperture can only be expanded so far, and C2 hits the 2 mm floor at about 1.97 mrad --
+// so the top of the slider is deliberately out of reach in collimate mode, and applyIllumination
+// says so rather than returning something wrong.
+const A_MIN = 0.05, A_MAX = 39.5;    // mrad
 const sliderToAlpha = t => A_MIN * Math.pow(A_MAX / A_MIN, t / 1000);
 const alphaToSlider = a =>
   Math.round(1000 * Math.log(Math.min(A_MAX, Math.max(A_MIN, a)) / A_MIN) / Math.log(A_MAX / A_MIN));
@@ -310,9 +364,9 @@ const state = {
   thetaB   : 10,             // mrad
   coupling : 'diff',         // 'diff' | 'img'  -- the two EELS coupling regimes
   holdEL   : true,           // keep the EELS lens fixed; solve with PL1-PL4 only
-  alpha    : 5,              // convergence semi-angle, mrad -- set by C2 + C3
+  alpha    : 15,             // convergence semi-angle, mrad -- set by C2 + C3 (C2 5, C3 55)
   illumMode: 'focus',        // 'focus' | 'collimate' -- what the alpha slider preserves
-  targetL  : 40,             // diffraction-coupled: camera length at the EELS aperture, mm
+  targetL  : 28.2,           // diffraction-coupled: camera length at the EELS aperture, mm
   targetM  : 10,             // image-coupled: magnification at the EELS aperture
   sampleDz : 0,              // sample shift from the OL1/OL2 midpoint, mm (+ = toward OL2)
   showDiff : true,
@@ -448,9 +502,21 @@ function analyse() {
   // it is "in focus" when the probe crossover sits on it.
   const smpFocused = Math.abs(zProbe - Z_SMP) <= TOL;
 
+  // Centre-to-centre separation of the +/-1 Bragg discs at the EELS aperture, in mm. Every cone
+  // ray is its own primary ray displaced by B*thetaB (the Bragg angle just adds to that ray's
+  // slope, and the plane's B carries slope to height), so the two disc centres land at
+  // +/- B*thetaB whatever the illumination is doing and however wide the direct beam is.
+  // Referenced to the SPECIMEN rather than to Z_REF, because that is where the scattering
+  // happens and where coneTraces launches the cones, so it follows the defocus slider.
+  // This is the calibration handle: measure the spot spacing on a known d-spacing, and
+  // L = spacing / (2 * thetaB) gives the column's real camera length.
+  const bSmp = traceFrom(Z_SMP, 0, 1, Z_MAX).at(Z_EAP).y;
+  const braggSep = 2 * Math.abs(bSmp) * (state.thetaB / 1000);
+
   return {
     a, b, i, crossovers, diffPlanes, imagePlanes, u0max, collimated, A, B,
     magEAP: magEAP, camEAP: camEAP, magEFP: magEFP, camEFP: camEFP,
+    braggSep: braggSep, camSMP: Math.abs(bSmp),
     mag : magEFP, camL: camEAP,                             // back-compat names
     alpha  : alpha,                                         // rad
     uRef   : uRef, yRef : yRef, fOL2 : fOL2,
@@ -522,7 +588,7 @@ function traceBackState(y, u, zFrom, zTo, over) {
 
 /** Set the illumination: C2 and C3 together fix BOTH the mode (probe focused at the
  *  reference plane, or parallel there) AND the convergence semi-angle alpha, with the VOA
- *  left at its fixed 1.6 mm.
+ *  left at its fixed 30 um radius.
  *
  *  Two conditions, two unknowns. alpha is defined as the slope OL2 imparts to the marginal
  *  ray, |y(OL2)| / f_OL2, which is the ordinary convergence angle when the probe is focused
@@ -583,8 +649,9 @@ function applyIllumination() {
     state.power.C2 = keep.C2; state.power.C3 = keep.C3;
     return ['bad', 'No positive-focal-length C2 + C3 gives ' + state.alpha.toFixed(2) +
                    ' mrad ' + (isFocus ? 'with the probe focused' : 'with parallel illumination') +
-                   ' on this column. The floor is about 0.54 mrad focused with f >= ' +
-                   F_MIN + ' mm.'];
+                   ' on this column. With f >= ' + F_MIN + ' mm the focused reach is about ' +
+                   '0.047 - 39.5 mrad, but parallel illumination only reaches about 1.97 mrad - ' +
+                   'the 30 um aperture cannot be expanded further before C2 hits the strength limit.'];
   }
 
   state.power.C2 = best.p2; state.power.C3 = best.p3;
@@ -877,7 +944,16 @@ const idx = { lens: {}, voa: -1, rays: [] };
 let W = 0, H = 0, sx = 1, dpr = 1, BAND = 0, MID = 0, TOPBAND = 0, HALF = 0;
 let renderScale = 1;                                    // >1 only while exporting a hi-res PNG
 const LBL_ROWS = 3, LBL_PITCH = 24, LBL_SIZE_DY = 11;   // bottom label band geometry, CSS px
-const TOP_H = 95, DZ_ROW = 24;                          // top control band, dz row, CSS px
+const TOP_H = 115, DZ_ROW = 24;                         // top control band, dz row, CSS px
+/** The focal-length boxes are staggered into two rows so they can be wide enough to read.
+ *  The tightest lens pair is OL1/OL2 at 44 mm, about 27 px on a 1280 px window -- far too narrow
+ *  for a number. Rows are assigned by a greedy pack in z (MILLIMETRES, not pixels) so the
+ *  assignment is scale-invariant and the layout does not re-shuffle as the window resizes;
+ *  LENS_SEP_MM = 120 is the best any 2-colouring can do here, since PL2/PL3/PL4 sit 60 mm apart.
+ *  The sliders do NOT stagger -- they share a log-f scale, so the row of thumbs reads as a power
+ *  profile across the column, and a compensating top margin keeps them aligned. */
+const LENS_ROWS = 2, LENS_SEP_MM = 120, LENS_ROW_DY = 20;
+const F_BOX_MIN = 34, F_BOX_MAX = 56;                   // 56px shows 9 chars at 9.5px monospace
 /** Where drawOverlay packed each element's label, in CSS px -- the canvas-mounted
  *  controls are positioned from these so the two can never disagree. */
 const LABEL_POS = {};
@@ -886,7 +962,7 @@ const LABEL_POS = {};
  *  ray for an on-axis point source, so the outermost surviving ray sets the extent. */
 const beamRadius = (r, z) => Math.abs(r.a.at(z).y) * r.u0max;
 
-/** 1.60 mm / 291 um / 0 -- adaptive units for the per-plane beam radii */
+/** 0.45 mm / 30 um / 0 -- adaptive units for the per-plane beam radii */
 function fmtLen(mm) {
   if (!isFinite(mm)) return '--';
   if (mm >= 1)      return mm.toFixed(2) + ' mm';
@@ -1111,7 +1187,7 @@ function buildControls() {
   // syncInputs carry over untouched.
   el$('topband').innerHTML = LENSES.map(e =>
     '<div class="lensctl" id="row_' + e.id + '" title="' + e.label + '">' +
-      '<input type="number" id="f_' + e.id + '" step="1" min="' + F_MIN + '">' +
+      '<input type="number" id="f_' + e.id + '" step="0.01" min="' + F_MIN + '">' +
       '<input type="range"  id="p_' + e.id + '" min="0" max="' + (SLIDER_STEPS + 1) + '" step="1">' +
     '</div>').join('');
 
@@ -1124,13 +1200,13 @@ function buildControls() {
   el$('alpharow').innerHTML =
     '<div class="row on"><label>&alpha; mrad</label>' +
       '<input type="range" id="p_al" min="0" max="1000" step="1">' +
-      '<input type="number" id="f_al" step="0.5" min="0.55" max="50"></div>' +
+      '<input type="number" id="f_al" step="0.01" min="' + A_MIN + '" max="' + A_MAX + '"></div>' +
     '<div class="row"><span class="unit" id="alEcho"></span></div>';
 
   el$('camrow').innerHTML =
     '<div class="row on"><label id="clLabel">L (mm)</label>' +
       '<input type="range" id="p_cl" min="0" max="3.1" step="0.004">' +
-      '<input type="number" id="f_cl" step="5" min="0.5"></div>' +
+      '<input type="number" id="f_cl" step="0.1" min="0.5"></div>' +
     '<div class="row"><span class="unit" id="magEcho"></span></div>';
 
   el$('disp').innerHTML =
@@ -1194,31 +1270,55 @@ function buildControls() {
   el$('bReset').addEventListener('click', () => {
     for (const e of LENSES) state.power[e.id] = 1 / e.f;
     state.voaR = BY_ID.VOA.r; state.nRays = 15; state.thetaB = 10;
-    state.targetL = 40; state.targetM = 10; state.coupling = 'diff'; state.sampleDz = 0;
+    state.targetL = 28.2; state.targetM = 10; state.coupling = 'diff'; state.sampleDz = 0;
     state.holdEL = true;  el$('cbHoldEL').checked = true;
     state.showDiff = true; el$('cbDiff').checked = true;
-    state.alpha = 5;  state.illumMode = 'focus';
+    state.alpha = 15; state.illumMode = 'focus';
     flash(null); fitK(); refresh();
   });
 }
 
 /** Put the canvas-mounted controls where their elements are. Positions come from the same
  *  numbers the overlay drew with, so the two cannot disagree. CSS px throughout. */
+/** Greedy row pack in z, mm. Same shape as the bottom label band's packer, but the threshold is
+ *  in millimetres rather than pixels so the row assignment never changes with window size. */
+function lensRows() {
+  const byZ = LENSES.slice().sort((a, b) => a.z - b.z);
+  const lastZ = new Array(LENS_ROWS).fill(-Infinity);
+  const row = {};
+  for (const e of byZ) {
+    let r = LENS_ROWS - 1;
+    for (let k = 0; k < LENS_ROWS; k++)
+      if (e.z - lastZ[k] >= LENS_SEP_MM) { r = k; break; }
+    lastZ[r] = e.z; row[e.id] = r;
+  }
+  return row;
+}
+
 function layoutCanvasControls() {
   const topCss = TOPBAND / dpr;
-  // OL1 and OL2 are only 80 mm apart, which is ~35 px on a narrow window -- narrow the
-  // stacks to the tightest neighbour gap so the number boxes never overlap.
-  const xs = LENSES.map(e => X(e.z) / dpr).sort((a, b) => a - b);
+  const row = lensRows();
+  // Width is bounded by the tightest SAME-ROW neighbour, which the stagger roughly doubles.
+  const byRow = {};
+  for (const e of LENSES) (byRow[row[e.id]] = byRow[row[e.id]] || []).push(X(e.z) / dpr);
   let minGap = Infinity;
-  for (let i = 1; i < xs.length; i++) minGap = Math.min(minGap, xs[i] - xs[i - 1]);
-  const wCss = Math.max(28, Math.min(48, Math.floor(minGap) - 3));
+  for (const k in byRow) {
+    const xs = byRow[k].sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) minGap = Math.min(minGap, xs[i] - xs[i - 1]);
+  }
+  const wCss = Math.max(F_BOX_MIN, Math.min(F_BOX_MAX, Math.floor(minGap) - 6));
   for (const e of LENSES) {
     const d = el$('row_' + e.id);
     if (!d) continue;
+    const r = row[e.id];
     d.style.left  = (X(e.z) / dpr) + 'px';
-    d.style.top   = '6px';
+    d.style.top   = (6 + r * LENS_ROW_DY) + 'px';
     d.style.width = wCss + 'px';
-    d.style.height = (topCss - 10) + 'px';
+    d.style.height = '';                                 // children are in flow; height is free
+    // push the slider down by however many rows this box sits above the last one, so that every
+    // slider still starts at the same y and the thumbs stay comparable across the column
+    const sl = el$('p_' + e.id);
+    if (sl) sl.style.marginTop = (3 + (LENS_ROWS - 1 - r) * LENS_ROW_DY) + 'px';
   }
   const dz = el$('dzctl'), pos = LABEL_POS.SMP;
   if (dz && pos) {
@@ -1329,6 +1429,12 @@ function syncInputs() {
 function drawReadout(r) {
   const row  = (k, v) => '<tr><td class="k">' + k + '</td><td class="v">' + v + '</td></tr>';
   const dim  = (on, s) => on ? s : '<span style="color:#6b6b6b">' + s + '</span>';
+  /** Magnification at a diffraction plane, and camera length at an image plane, are not small
+   *  numbers -- they are not numbers at all (A = 0 and B = 0 there by definition). Printing the
+   *  greyed "0.000x" reads as a broken value rather than an inapplicable one, so show a dash and
+   *  keep the units out of it. */
+  const only = (on, s) => on ? s : '<span style="color:#6b6b6b" title="not defined at this kind of'
+                              + ' plane">&mdash;</span>';
   const plane = (id, label) => {
     const st = planeState(id, r.chk[id]);
     const z  = isFinite(st.z) ? fmt(st.z) + ' mm' : '';
@@ -1349,24 +1455,27 @@ function drawReadout(r) {
       row('regime', r.collimated ? '<span class="ac">parallel (TEM)</span>'
                                  : '<span class="ac">focused probe (STEM)</span>') +
       plane('SMP', 'sample ' + fmt(Z_SMP, Number.isInteger(Z_SMP) ? 0 : 2)) +
-      plane('EAP', 'EELS aperture 1300') +
-      plane('EFP', 'EELS focal 1500')) +
+      plane('EAP', 'EELS aperture ' + Z_EAP) +
+      plane('EFP', 'EELS focal ' + Z_EFP)) +
     group('Conjugates',
       row('sample images',      list(r.imagePlanes, 'ac')) +
       row('diffraction planes', list(r.diffPlanes, 'dp')) +
       row('illum. crossovers',  list(r.crossovers, ''))) +
     group('Beam',
-      row('VOA radius',          '<span style="color:#6b6b6b">' + fmt(state.voaR, 2) + ' mm fixed</span>') +
+      row('VOA radius',          '<span style="color:#6b6b6b">' + fmtLen(state.voaR) + ' fixed</span>') +
       row('convergence &alpha;', fmt(r.alpha * 1000, 2) + ' mrad') +
       row('beam at sample',      r.collimated ? fmtLen(beamRadius(r, Z_SMP)) + ' <span style="color:#6b6b6b">parallel</span>'
                                               : fmtLen(beamRadius(r, Z_SMP))) +
       row('probe defocus',       r.collimated ? '<span style="color:#6b6b6b">--</span>'
                                               : fmt(r.defocus, 2) + ' mm')) +
     group('Coupling',
-      row('Mag @EELS ap.',           dim(r.chk.EAP.image, fmt(r.magEAP, 3) + '&times;')) +
-      row('cam. length @EELS ap.',   dim(r.chk.EAP.diff,  fmt(r.camEAP, 2) + ' mm')) +
-      row('Mag @EELS focal',         dim(r.chk.EFP.image, fmt(r.magEFP, 3) + '&times;')) +
-      row('cam. length @EELS focal', dim(r.chk.EFP.diff,  fmt(r.camEFP, 2) + ' mm')));
+      row('Mag @EELS ap.',           only(r.chk.EAP.image, fmt(r.magEAP, 3) + '&times;')) +
+      row('cam. length @EELS ap.',   only(r.chk.EAP.diff,  fmt(r.camEAP, 2) + ' mm')) +
+      row('Mag @EELS focal',         only(r.chk.EFP.image, fmt(r.magEFP, 3) + '&times;')) +
+      row('cam. length @EELS focal', only(r.chk.EFP.diff,  fmt(r.camEFP, 2) + ' mm')) +
+      row('&plusmn;1 Bragg spacing @ap.',
+          fmtLen(r.braggSep) + ' <span style="color:#6b6b6b">at &theta;<sub>B</sub> = '
+          + fmt(state.thetaB, 1) + ' mrad</span>'));
 
   const bad = [];
   if (r.imagePlanes.length === 0) bad.push('No sample image forms downstream.');
@@ -1434,21 +1543,30 @@ function selftest() {
 
   for (const e of LENSES) state.power[e.id] = 1 / e.f;
   state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.coupling = 'diff';
-  state.alpha = 5;  state.illumMode = 'focus'; state.holdEL = false;
+  state.alpha = 15; state.illumMode = 'focus'; state.holdEL = false;
   state.thetaB = 10; state.showDiff = true;
-  state.targetL = 40; state.targetM = 10;
+  state.targetL = 28.2; state.targetM = 10;
   const r = analyse();
 
-  chk('illum crossovers (mm)',   r.crossovers,          [400, 640, 920, 1500], 1e-9);
-  chk('sample images (mm)',      r.imagePlanes,         [920, 1500],           1e-9);
-  chk('diffraction planes (mm)', r.diffPlanes,          [720, 1300],           1e-9);
-  chk('magnification',           r.magEFP,              5,     1e-9);
-  chk('camera length (mm)',      r.camEAP,              40,    1e-9);
-  // the same number as the textbook L = f_OL2 * M(BFP -> aperture)
-  chk('camL = f_OL2 * M(720->1300)',
-      40 * Math.abs(traceFrom(720, 1, 0, Z_MAX).at(Z_EAP).y /
-                    traceFrom(720, 1, 0, Z_MAX).at(720).y), 40, 1e-9);
-  chk('convergence (mrad)',      r.alpha * 1000,         5,    1e-9);
+  // The element positions are measured, so the conjugates are no longer round decimals and the
+  // stored PL1/PL4/EL are the solve truncated to 10 dp. That leaves about 4e-11 mm of residual,
+  // so these assert to 1e-6 mm rather than 1e-9 -- tight enough to catch a real drift, loose
+  // enough not to depend on the last bit of a stored constant.
+  const IMG_PLANES = [976.679438963, 1204.2761275738, 1595];
+  const DIF_PLANES = [829, 1181.7610357029, 1550];
+  chk('illum crossovers (mm)',   r.crossovers, [245, 785].concat(IMG_PLANES), 1e-6);
+  chk('sample images (mm)',      r.imagePlanes,         IMG_PLANES,           1e-6);
+  chk('diffraction planes (mm)', r.diffPlanes,          DIF_PLANES,           1e-6);
+  chk('magnification',           r.magEFP,              45 / 28.2, 1e-6);
+  chk('camera length (mm)',      r.camEAP,              28.2,  1e-6);
+  // the same number as the textbook L = f_OL2 * M(BFP -> aperture); OL2's back focal plane is 829
+  chk('camL = f_OL2 * M(829->1550)',
+      22 * Math.abs(traceFrom(829, 1, 0, Z_MAX).at(Z_EAP).y /
+                    traceFrom(829, 1, 0, Z_MAX).at(829).y), 28.2, 1e-6);
+  chk('convergence (mrad)',      r.alpha * 1000,        15,    1e-9);
+  // Sean's calibration point off the microscope: a focused 39 mrad probe puts the direct beam at
+  // 1.10 mm radius on the EELS aperture. r = L * alpha exactly, so this pins the camera length.
+  chk('r at aperture, 39 mrad (mm)', r.camEAP * 0.039,  1.0998, 1e-9);
   chk('probe radius (um)',       r.probeR,              0,     1e-12);
   chk('sample conjugate',        r.chk.SMP.ok ? 1 : 0,  1,     0);
   chk('EELS ap. = diff plane',   r.chk.EAP.ok ? 1 : 0,  1,     0);
@@ -1462,59 +1580,74 @@ function selftest() {
   state.K = kSave;
 
   // --- per-plane beam radius (mm) ---
-  chk('beam radius at VOA',  beamRadius(r, Z_VOA), 0.4, 1e-12);   // the aperture itself
-  chk('beam radius at EAP',  beamRadius(r, Z_EAP), 0.2, 1e-12);   // = camL * alpha = 40 * 5e-3
-  chk('beam radius at SMP',  beamRadius(r, Z_SMP), 0,   1e-12);
-  chk('beam radius at PL4',  beamRadius(r, BY_ID.PL4.z), 0.3, 1e-12);
+  chk('beam radius at VOA',  beamRadius(r, Z_VOA), 0.030, 1e-12);  // the aperture itself
+  chk('beam radius at EAP',  beamRadius(r, Z_EAP), 0.423, 1e-9);   // = camL * alpha = 28.2 * 15e-3
+  chk('beam radius at SMP',  beamRadius(r, Z_SMP), 0,     1e-12);
+  chk('beam radius at PL4',  beamRadius(r, BY_ID.PL4.z), 0.8577724413, 1e-9);
+  chk('beam radius at OL1',  beamRadius(r, BY_ID.OL1.z), 0.330, 1e-12);  // collimated into OL1
   chk('camera length = radius/alpha', beamRadius(r, Z_EAP) / r.alpha, r.camEAP, 1e-9);
 
   // --- focus the probe with C3 (was OL1) ---
   const restore = () => { for (const e of LENSES) state.power[e.id] = 1 / e.f;
-                          state.holdEL = false; state.sampleDz = 0;
-                          state.alpha = 5;  state.illumMode = 'focus'; };
+                          state.holdEL = false; state.sampleDz = 0; state.thetaB = 10;
+                          state.alpha = 15; state.illumMode = 'focus'; };
   restore();
   state.power.C2 = 1 / 61; state.power.C3 = 1 / 61;   // detune both, then solve back
   const fRes = focusProbeOnSample();
   chk('focus: banner ok',   fRes[0] === 'ok' ? 1 : 0,  1, 0);
-  chk('focus: f_C2 (mm)',   1 / state.power.C2,      100, 1e-9);
-  chk('focus: f_C3 (mm)',   1 / state.power.C3,       50, 1e-9);
-  chk('focus: alpha (mrad)', analyse().alpha * 1000,   5, 1e-9);
-  chk('focus: OL1 untouched', 1 / state.power.OL1,    40, 1e-12);
+  chk('focus: f_C2 (mm)',   1 / state.power.C2,        5, 1e-9);
+  chk('focus: f_C3 (mm)',   1 / state.power.C3,       55, 1e-9);
+  chk('focus: alpha (mrad)', analyse().alpha * 1000,  15, 1e-9);
+  chk('focus: OL1 untouched', 1 / state.power.OL1,    22, 1e-12);
+  // C2 + C3 land on the afocal relay: their focal lengths sum to their own 60 mm spacing,
+  // which is what makes alpha = 1.2 * f_C3/f_C2 mrad and the defaults come out round.
+  chk('focus: C2 + C3 afocal', 1 / state.power.C2 + 1 / state.power.C3,
+      BY_ID.C3.z - BY_ID.C2.z, 1e-9);
 
-  // alpha round-trips through the C2 + C3 solve in both modes
-  for (const m of ['focus', 'collimate']) {
-    for (const a of [0.55, 2, 10, 20, 50]) {
-      restore(); state.alpha = a; state.illumMode = m;
-      applyIllumination();
-      chk('alpha ' + m + ' ' + a, analyse().alpha * 1000, a, 1e-6);
-    }
+  // alpha round-trips through the C2 + C3 solve. The two modes have very different reach on this
+  // column -- focused spans the whole slider, parallel stops near 2 mrad -- so they are sampled
+  // over their own ranges rather than a shared list.
+  for (const a of [A_MIN, 1, 5, 15, 25, 39, A_MAX]) {
+    restore(); state.alpha = a; state.illumMode = 'focus';
+    applyIllumination();
+    chk('alpha focus ' + a, analyse().alpha * 1000, a, 1e-6);
   }
+  for (const a of [A_MIN, 0.2, 0.5, 1, 1.5, 1.9]) {
+    restore(); state.alpha = a; state.illumMode = 'collimate';
+    applyIllumination();
+    chk('alpha collimate ' + a, analyse().alpha * 1000, a, 1e-6);
+  }
+  // ...and above the parallel ceiling it must refuse rather than return something wrong
+  restore(); state.alpha = 2; state.illumMode = 'collimate';
+  const tooWide = applyIllumination();
+  chk('collimate above ceiling refuses', tooWide[0] === 'bad' ? 1 : 0, 1, 0);
+  chk('collimate ceiling left C2 alone', 1 / state.power.C2, 5, 1e-12);
   restore();
 
   // --- collimate: C2 + C3 set the mode AND alpha together ---
-  // at the default alpha = 20 the spot is alpha * f_OL2 = 0.8 mm; the old 34.375 mm C3
-  // corresponds to alpha = 20/11 mrad at this aperture, so assert that case explicitly
-  restore(); state.alpha = 20;
-  const c20 = collimateOnSample(), r20 = analyse();
-  chk('collimate a=20: banner ok', c20[0] === 'ok' ? 1 : 0, 1, 0);
-  chk('collimate a=20: alpha',     r20.alpha * 1000, 20, 1e-9);
-  chk('collimate a=20: r = a*fOL2', Math.abs(r20.yRef) * r20.u0max, 0.8, 1e-9);
-  chk('collimate a=20: C2 (mm)',   1 / state.power.C2, 15000 / 650,  1e-6);
-  chk('collimate a=20: C3 (mm)',   1 / state.power.C3, 550 / 9.33333333333, 1e-5);
+  // 1.9 mrad is just under the parallel ceiling; the spot there is alpha * f_OL2 = 47.5 um,
+  // which is as wide as a 30 um aperture can be opened out on this column.
+  restore(); state.alpha = 1.9;
+  const c19 = collimateOnSample(), r19 = analyse();
+  chk('collimate a=1.9: banner ok', c19[0] === 'ok' ? 1 : 0, 1, 0);
+  chk('collimate a=1.9: alpha',     r19.alpha * 1000, 1.9, 1e-9);
+  chk('collimate a=1.9: r = a*fOL2', Math.abs(r19.yRef) * r19.u0max, 0.0418, 1e-9);
+  chk('collimate a=1.9: C2 near floor', 1 / state.power.C2 < 2.2 ? 1 : 0, 1, 0);
 
-  restore(); state.alpha = 20 / 11;                    // 1.8182 mrad: the alpha that
-                                                       // leaves C2/C3 round at this aperture
+  restore(); state.alpha = 1;
   const cRes = collimateOnSample(), rc = analyse();
   chk('collimate: banner ok',    cRes[0] === 'ok' ? 1 : 0,           1, 0);
-  chk('collimate: C2 (mm)',      1 / state.power.C2,               100, 1e-6);
-  chk('collimate: f_C3 (mm)',    1 / state.power.C3,            34.375, 1e-6);
-  chk('collimate: illum crossovers', rc.crossovers, [400, 560, 720, 1300], 1e-9);
-  chk('collimate: images UNMOVED',   rc.imagePlanes, [920, 1500],           1e-9);
-  chk('collimate: diffraction',      rc.diffPlanes,  [720, 1300],           1e-9);
+  chk('collimate: C2 (mm)',      1 / state.power.C2,        3.8216561, 1e-6);
+  chk('collimate: f_C3 (mm)',    1 / state.power.C3,       49.8305085, 1e-6);
+  // parallel illumination puts the source images on the DIFFRACTION planes, not the sample images
+  chk('collimate: illum crossovers', rc.crossovers,
+      [243.8216561, 741].concat(DIF_PLANES),                        1e-6);
+  chk('collimate: images UNMOVED',   rc.imagePlanes, IMG_PLANES,    1e-6);
+  chk('collimate: diffraction',      rc.diffPlanes,  DIF_PLANES,    1e-6);
   chk('collimate: flagged parallel', rc.collimated ? 1 : 0,          1, 0);
   chk('collimate: sample state',
       planeState('SMP', rc.chk.SMP).kind === 'alt' ? 1 : 0, 1, 0);
-  chk('collimate: beam at sample (mm)', beamRadius(rc, Z_SMP), 20 / 11 / 1000 * 40, 1e-9);   // r = alpha*f_OL2
+  chk('collimate: beam at sample (mm)', beamRadius(rc, Z_SMP), 1 / 1000 * 22, 1e-9);   // r = alpha*f_OL2
 
   // --- Bragg cones must span the illuminated area, not start from a point ---
   const coneSpan = rr => {
@@ -1525,6 +1658,34 @@ function selftest() {
   chk('cones span beam when parallel', coneSpan(rc), beamRadius(rc, Z_SMP), 1e-12);
   restore();
   chk('cones start at a point when focused', coneSpan(analyse()), 0, 1e-12);
+
+  // --- +/-1 Bragg spacing at the aperture: the camera-length calibration handle ---
+  // Tie the reported number to where the cones are actually DRAWN, so the readout can never
+  // drift away from the picture; the k = 0 member of each order is its disc centre.
+  const discGap = rr => {
+    const mean = m => {
+      const ys = coneTraces(rr).filter(c => c.m === m).map(c => c.t.at(Z_EAP).y);
+      return ys.reduce((p, q) => p + q, 0) / ys.length;
+    };
+    return Math.abs(mean(1) - mean(-1));
+  };
+  restore();
+  chk('bragg: matches the drawn discs', analyse().braggSep, discGap(analyse()), 1e-12);
+  chk('bragg: = 2 L thetaB (mm)',       analyse().braggSep,
+      2 * analyse().camEAP * state.thetaB / 1000, 1e-12);
+  chk('bragg: default spacing (mm)',    analyse().braggSep, 0.564, 1e-9);
+  // linear in thetaB, and independent of the illumination -- it is a post-sample property
+  restore(); state.thetaB = 25;
+  chk('bragg: linear in thetaB', analyse().braggSep, 2 * 28.2 * 0.025, 1e-9);
+  restore(); state.alpha = 1; state.illumMode = 'collimate'; collimateOnSample();
+  chk('bragg: same under parallel illumination', analyse().braggSep, 0.564, 1e-9);
+  // At a diffraction plane A = 0, so B is the same measured from the specimen or the reference
+  // plane -- the spacing must not move with defocus, which is what makes it a clean calibration.
+  restore(); state.sampleDz = 1;
+  chk('bragg: dz = +1 leaves it alone', analyse().braggSep, 0.564, 1e-9);
+  restore(); state.sampleDz = -1;
+  chk('bragg: dz = -1 leaves it alone', analyse().braggSep, 0.564, 1e-9);
+  restore();
 
 
   // --- matched EELS coupling, both regimes ---
@@ -1551,30 +1712,31 @@ function selftest() {
     chk(tag + ': all f positive',
         [state.power.PL1, state.power.PL4, state.power.EL].every(p => p > 0 && p <= P_MAX) ? 1 : 0, 1, 0);
   };
-  eels('diff', 40,   [120, 150, 375]);        // the documented default must not drift
+  const DEF_PROJ = [BY_ID.PL1.f, BY_ID.PL4.f, BY_ID.EL.f];
+  eels('diff', 28.2, DEF_PROJ);                // the documented default must not drift
   eels('diff', 80,   true);
   eels('diff', 10,   true);
+  eels('diff', 0.5,  true);                    // the short-camera-length end
   eels('diff', 400,  true);                    // reached via the opposite image parity
-  eels('diff', 5000, true);                    // reachable now the cap is f >= 2 mm
+  eels('diff', 1000, true);                    // about the ceiling for a triple on this column
   // matching is a post-sample property, so parallel illumination must give the same answer
-  eels('diff', 40,   [120, 150, 375], () => { state.power.C3 = 1 / 34.375; });
+  eels('diff', 28.2, DEF_PROJ, () => { state.power.C2 = 1 / 3.8216561; state.power.C3 = 1 / 49.8305085; });
   // image coupling: image at the aperture, diffraction at the focal plane
   eels('img',  10,   true);
   eels('img',  1,    true);
   eels('img',  20,   true);
-  eels('img',  80,   true);                    // was missed until the B/C role swap
-  eels('img',  120,  true);                    // both were out of reach at the old f >= 10 mm
-  eels('img',  200,  true);                    // cap; the f >= 2 mm cap brings them in
-  eels('img',  400,  true);                    // about the ceiling: M_max ~ 800/f_min
-  eels('img',  5000, true);                    // no triple reaches this; the four-lens stage does
+  eels('img',  0.05, true);                    // the demagnifying end
+  eels('img',  50,   true);
+  eels('img',  100,  true);                    // about the ceiling: M_max ~ 200/f_min here
+  eels('img',  800,  true);                    // no triple reaches this; the four-lens stage does
 
-  // M = 1.5 has no three-lens solution among the excited lenses, so the last-resort stage
+  // M = 3 has no three-lens solution among the excited lenses, so the last-resort stage
   // must switch one on and say so.
-  restore(); state.coupling = 'img'; state.targetM = 1.5;
+  restore(); state.coupling = 'img'; state.targetM = 3;
   const lr = matchEelsPlanes(), rlr = analyse();
   chk('last resort: solves',      lr[0] === 'ok' ? 1 : 0, 1, 0);
   chk('last resort: announced',   /Switched on/.test(lr[1]) ? 1 : 0, 1, 0);
-  chk('last resort: M reached',   rlr.magEAP, 1.5, 1e-3);
+  chk('last resort: M reached',   rlr.magEAP, 3, 1e-3);
   chk('last resort: turned one on',
       (state.power.PL2 > 0 || state.power.PL3 > 0) ? 1 : 0, 1, 0);
 
@@ -1587,7 +1749,8 @@ function selftest() {
   // hold EL: the EELS lens must come back bit-identical in both regimes
   for (const m of ['diff', 'img']) {
     restore(); state.holdEL = true; state.coupling = m;
-    state.targetL = 80; state.targetM = 10;      // NOT 40: the column already meets L = 40,                              // so the guard would short-circuit the test
+    state.targetL = 80; state.targetM = 10;      // NOT 28.2: the column already meets L = 28.2,
+                                                 // so the guard would short-circuit the test
     const elBefore = state.power.EL;
     const hr = matchEelsPlanes();
     chk('holdEL ' + m + ': EL unchanged', state.power.EL, elBefore, 0);
@@ -1600,13 +1763,13 @@ function selftest() {
   chk('slider: off round-trips',    powerToSlider(0),            0,     0);
   chk('slider: top is f_min',       1 / sliderToPower(SLIDER_STEPS + 1), F_MIN, 1e-9);
   chk('slider: bottom step is f_max', 1 / sliderToPower(1),      F_MAX, 1e-6);
-  for (const f of [2, 4, 10, 40, 120, 375, 1000, 5000]) {
+  for (const f of [2, 4, 10, 22, 55, 91.3748845769, 1000, 5000]) {
     const back = sliderToPower(powerToSlider(1 / f));
     chk('slider round-trip f=' + f, 1 / back, f, f * 0.005);   // ~0.86% per step
   }
 
   // --- shipped defaults, and the already-matched guard ---
-  restore(); state.holdEL = true; state.coupling = 'diff'; state.targetL = 40;
+  restore(); state.holdEL = true; state.coupling = 'diff'; state.targetL = 28.2;
   const povBefore = PROJ.map(id => state.power[id]);
   const already = matchEelsPlanes();
   chk('guard: reports ok',        already[0] === 'ok' ? 1 : 0, 1, 0);
@@ -1630,21 +1793,23 @@ function selftest() {
         PROJ.every(id => state.power[id] === 0 ||
                          (state.power[id] > 0 && state.power[id] <= P_MAX)) ? 1 : 0, 1, 0);
   };
-  quad('img',  800);
-  quad('diff', 16000);
+  // On this column the all-projector quads (which leave EL alone) reach L = 8000 / M = 2000;
+  // past that the solver has to bring EL in, so these targets are where the property still holds.
+  quad('img',  1200);
+  quad('diff', 8000);
   restore();
 
   // --- sample defocus ---
-  restore(); state.coupling = 'diff'; state.targetL = 40;
+  restore(); state.coupling = 'diff'; state.targetL = 28.2;
   for (const dz of [1, -1]) {
     state.sampleDz = dz;
     const rd = analyse();
     chk('dz=' + dz + ': sample z',       Z_SMP, SMP_Z0 + dz, 1e-12);
-    chk('dz=' + dz + ': beam radius mm', beamRadius(rd, Z_SMP), 0.005, 1e-12);  // alpha * |dz|
+    chk('dz=' + dz + ': beam radius mm', beamRadius(rd, Z_SMP), 0.015, 1e-12);  // alpha * |dz|
     chk('dz=' + dz + ': defocus mm',     rd.defocus, -dz, 1e-12);
     // every conjugate is referenced to Z_REF now, so NOTHING optical moves with the specimen
-    chk('dz=' + dz + ': diffraction unmoved', rd.diffPlanes, [720, 1300], 1e-9);
-    chk('dz=' + dz + ': images unmoved too',  rd.imagePlanes, [920, 1500], 1e-9);
+    chk('dz=' + dz + ': diffraction unmoved', rd.diffPlanes, DIF_PLANES, 1e-6);
+    chk('dz=' + dz + ': images unmoved too',  rd.imagePlanes, IMG_PLANES, 1e-6);
   }
   // and the EELS solve must give the same answer wherever the specimen sits
   const atDz = dz => { restore(); state.sampleDz = dz; state.coupling = 'diff'; state.targetL = 80;
@@ -1665,7 +1830,7 @@ function selftest() {
   chk('dz clamped to +1', state.sampleDz, 1, 0);
   state.sampleDz = 0; syncSampleZ();
 
-  restore(); state.coupling = 'diff'; state.targetL = 40; state.targetM = 10;
+  restore(); state.coupling = 'diff'; state.targetL = 28.2; state.targetM = 10;
 
   const txt = out.join('\n');
   console.log(txt);
@@ -1676,8 +1841,8 @@ function selftest() {
   b.textContent = (all ? 'SELF-TEST PASSED\n\n' : 'SELF-TEST FAILED\n\n') + txt;
   // the suite mutates state freely; hand the app back exactly as it ships
   for (const e of LENSES) state.power[e.id] = 1 / e.f;
-  state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.alpha = 20; state.illumMode = 'focus';
-  state.coupling = 'diff'; state.targetL = 40; state.targetM = 10;
+  state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.alpha = 15; state.illumMode = 'focus';
+  state.coupling = 'diff'; state.targetL = 28.2; state.targetM = 10;
   state.holdEL = true; state.thetaB = 10; state.showDiff = true; state.showMark = true;
 
   window.__selftest = { all: all, out: out };
@@ -1693,7 +1858,13 @@ function selftest() {
   fitK();
   refresh();
   if (location.search.indexOf('selftest') >= 0) selftest();
+  // Debug surface. The solvers and limits are exposed as well as the state because the numbers
+  // quoted in the README -- the alpha reach in each mode, the EELS reach at each strength cap,
+  // the refusal timings -- are measured by driving these from the console, and they have to be
+  // re-measured whenever the column changes. Nothing in the app reads from here.
   window.__api = { state, analyse, refresh, COLUMN, traceFrom, SCAN_N, QUAD,
+                   matchEelsPlanes, applyIllumination, focusProbeOnSample, collimateOnSample,
+                   beamRadius, selftest, LENSES, BY_ID, Z_EAP, Z_EFP, Z_REF, A_MIN, A_MAX, F_MIN,
                    X, Y, get W() { return W; }, get H() { return H; },
                    get scene() { return scene; }, get sim() { return sim; } };
   new ResizeObserver(() => { resize(); refresh(); }).observe(stage);
