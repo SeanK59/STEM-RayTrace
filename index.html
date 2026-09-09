@@ -45,6 +45,15 @@ header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
                            width:22px;height:62px;margin:3px auto 0;display:block;pointer-events:auto}
 .lensctl.off input[type=number]{color:#6b6b6b}
 .lensctl.off input[type=range]{accent-color:#5a5a5a;opacity:.55}
+/* Hold pin, at the foot of the stack and aligned across the column. Only lenses a solver can
+   actually move get one -- C1, OL1 and OL2 are set by hand only, so a pin there would be
+   decoration. Dimmed until checked so an unpinned column stays quiet. */
+.lensctl .hold{display:block;margin:4px auto 0;width:12px;height:12px;pointer-events:auto;
+               accent-color:var(--accent);opacity:.42;cursor:pointer}
+.lensctl .hold:hover{opacity:.85}
+.lensctl .hold:checked{opacity:1}
+.lensctl.pinned input[type=number]{border-color:var(--accent)}
+.lensctl.pinned input[type=range]{opacity:.5}
 #dzctl{display:flex;align-items:center;gap:4px;transform:translateX(-50%);width:122px}
 #dzctl input[type=range]{width:64px;height:12px}
 #dzctl input[type=number]{width:54px;padding:0 2px;font-size:9.5px;text-align:center}
@@ -63,6 +72,11 @@ header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
 .panel + .panel{margin-top:12px}
 .panel h2{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
 .row{display:grid;grid-template-columns:46px 1fr 76px;gap:7px;align-items:center;margin-bottom:5px}
+/* the camera-length row carries a checkbox that decides whether its value is an input at all */
+.row.hastgt{grid-template-columns:13px 46px 1fr 76px;gap:6px}
+.row.hastgt input[type=checkbox]{margin:0;accent-color:var(--accent);cursor:pointer}
+.row.notgt label,.row.notgt input[type=number]{color:#7c7c7c}
+.row.notgt input[type=range]{accent-color:#5a5a5a;opacity:.5}
 .row label{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
 .row.on label{color:var(--fg)}
 .row.cap{margin-bottom:6px}
@@ -147,8 +161,8 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
         ><button type="button" data-mode="img">image-coupled</button>
       </div>
       <div id="camrow"></div>
-      <label class="chk"><input type="checkbox" id="cbHoldEL" checked> Hold EL fixed (solve PL1&ndash;PL4 only)</label>
-      <button id="bEels">Match EELS planes <span class="sub">three projector lenses at a time, every combination; four if needed</span></button>
+      <label class="chk"><input type="checkbox" id="cbHoldEL" checked> Hold EL fixed <span style="color:#7c7c7c">&middot; same pin as EL's box on the figure</span></label>
+      <button id="bEels">Match EELS planes <span class="sub" id="eelsSub"></span></button>
       <hr>
       <button id="bReset">Restore defaults</button>
     </div>
@@ -188,6 +202,16 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   L&nbsp;0.5&ndash;1000&nbsp;mm) is reachable with three lenses, and the rest needs the four-lens stage. It also
   sets both ends of the &alpha; slider, since C2 is the lens that runs into the floor there. It is the lens
   strength that binds, not the spacing between the projector lenses.
+  <br><br>
+  <b>The checkbox at the foot of a lens stack pins that lens</b>, and a solve may not move a pinned lens.
+  <b>EL is pinned on a fresh load</b>, since holding the EELS lens while PL1&ndash;PL4 do the work is the
+  common case; nothing else is. Only the seven lenses a solve can actually reach carry one &mdash; C2 and C3,
+  which the illumination solve owns, and PL1&ndash;PL4 plus EL, which the EELS solve owns; C1, OL1 and OL2 are
+  set by hand only, so a pin there would mean nothing and they have none. Pinning narrows the search rather
+  than breaking it: matching both EELS planes at a chosen camera length is three conditions, so it needs at
+  least three free projector lenses, and below that the solve refuses and says which lenses are pinned. The
+  illumination solve has no slack at all &mdash; it sets the mode and the convergence angle with exactly C2 and
+  C3 &mdash; so pinning either one stops it outright.
   <br><br>
   <b>Radial exaggeration <code>K</code> is cosmetic.</b> It (currently <span id="kEcho">K</span>&times;) is pure
   vertical zoom &mdash; the beam is a fraction of a mm across in a 1595&nbsp;mm column, so it has to be stretched to be
@@ -232,6 +256,14 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
   <b>magnification M</b> and L&nbsp;=&nbsp;45/M at the focal plane follows (45&nbsp;mm being the gap between the two
   EELS planes). Because both conditions live entirely in the post-sample matrix, <b>matching works identically under
   focused and parallel illumination</b> &mdash; the same PL1/PL4/EL solve either way.
+  <br><br>
+  <b>The checkbox beside that value decides whether it is an input at all.</b> Checked, it is a target and the
+  solve has three conditions to meet, so it needs three free projector lenses. Clear it and the target stops
+  being a condition: the solve matches the two planes on their own with <b>two</b> lenses &mdash; every pair,
+  in both role orders, gentlest wins &mdash; and whatever camera length falls out is written back to the
+  slider, so the control becomes a readout. Whether a given pair has a solution depends on where the lenses
+  you did <i>not</i> free are sitting: from the shipped column all six PL pairs solve, spanning
+  L&nbsp;=&nbsp;3.9 to 28.2&nbsp;mm, but with every other projector switched off none of them do.
   <br><br>
   <b>Where A and B come from.</b> Write the ray-transfer matrix from the <i>reference plane</i> to whichever plane you
   care about as [[A,&nbsp;B],&nbsp;[C,&nbsp;D]]. A ray leaving the reference plane with height <i>y</i> and slope
@@ -353,6 +385,9 @@ const powerToSlider = pw => {
   const f = Math.min(F_MAX, Math.max(F_MIN, 1 / pw));      // clamp the DISPLAY only
   return Math.round(1 + SLIDER_STEPS * Math.log(F_MAX / f) / Math.log(F_MAX / F_MIN));
 };
+/** Pinned on a fresh load and by Restore defaults. Holding the EELS lens is the common case:
+ *  it keeps whatever coupling you dialled while PL1-PL4 do the work. */
+const HOLD_DEFAULTS = { EL: true };
 const TOL   = 0.5;          // mm, "coincides with" tolerance
 const BORE  = 4000;         // scene units; lens/aperture segments, never bypassed
 
@@ -363,9 +398,14 @@ const state = {
   K        : 120,
   thetaB   : 10,             // mrad
   coupling : 'diff',         // 'diff' | 'img'  -- the two EELS coupling regimes
-  holdEL   : true,           // keep the EELS lens fixed; solve with PL1-PL4 only
+  // Per-lens "do not move this one" pins, keyed by lens id. A solver may only touch a lens
+  // that is both solvable at all (see SOLVABLE) and not pinned here.
+  hold     : Object.fromEntries(LENSES.map(e => [e.id, !!HOLD_DEFAULTS[e.id]])),
   alpha    : 15,             // convergence semi-angle, mrad -- set by C2 + C3 (C2 5, C3 55)
   illumMode: 'focus',        // 'focus' | 'collimate' -- what the alpha slider preserves
+  useTarget: true,           // aim for targetL / targetM as well as matching both planes.
+                             // Off, the two plane conditions are solved on their own and
+                             // whatever camera length falls out is written back to the slider.
   targetL  : 28.2,           // diffraction-coupled: camera length at the EELS aperture, mm
   targetM  : 10,             // image-coupled: magnification at the EELS aperture
   sampleDz : 0,              // sample shift from the OL1/OL2 midpoint, mm (+ = toward OL2)
@@ -612,6 +652,14 @@ function applyIllumination() {
   if (!isFinite(fOL2))
     return ['bad', 'OL2 is off, so alpha is undefined - switch it on to set the convergence angle.'];
 
+  // Mode plus angle is two conditions and C2 + C3 are the two unknowns, so there is no room
+  // to give one of them up -- refuse rather than silently ignoring the pin.
+  const heldC = ['C2', 'C3'].filter(id => state.hold[id]);
+  if (heldC.length)
+    return ['bad', heldPhrase(heldC) + ', but the illumination solve needs both C2 and C3 - ' +
+      'it sets the mode and the convergence angle at once. Release ' +
+      (heldC.length === 1 ? 'it' : 'them') + ', or set the condensers by hand.'];
+
   const zC2 = BY_ID.C2.z, zC3 = BY_ID.C3.z;
   const d   = BY_ID.OL2.z - Z_REF;
   const rad = state.alpha / 1000;
@@ -792,7 +840,80 @@ function solveTriple(A, B, C, mode, target, N) {
   return null;
 }
 
+/** Both EELS planes, with the camera length left to fall out. Dropping the free quantity drops
+ *  the third condition, so two lenses is the right count rather than three: solve `y` affinely
+ *  for the aperture condition at each trial `x`, and root-find the focal-plane residual. Same
+ *  shape as solveTriple, one dimension smaller, and it needs no target to aim at.
+ *
+ *  Whether a pair actually has a solution depends on where the OTHER projectors sit -- with
+ *  every one of them switched off none of the pairs solve, while from the shipped column all
+ *  six do. That is why the staging below still tries the excited set first. */
+function solvePair(x, y, mode, N) {
+  const isDiff = mode === 'diff';
+  const atAp   = isDiff ? diffRay : imgRay;    // must vanish at the aperture
+  const atFoc  = isDiff ? imgRay  : diffRay;   // and this one at the focal plane
+  const keep   = Object.assign({}, state.power);
+
+  const resid = px => {
+    state.power[x] = px;
+    const py = solvePower(y, atAp, Z_EAP);
+    if (py === null || !(py > 0)) return null;
+    state.power[y] = py;
+    const v = atFoc().at(Z_EFP).y;
+    return isFinite(v) ? v : null;
+  };
+
+  const roots = [];
+  let prev = null;
+  for (let i = 0; i <= N; i++) {
+    const px = 1e-6 + (P_MAX - 1e-6) * i / N;
+    const v = resid(px);
+    if (v === null) { prev = null; continue; }
+    if (prev && prev.v * v < 0) {
+      let lo = prev.p, hi = px;
+      for (let k = 0; k < 100; k++) {
+        const m = (lo + hi) / 2, vm = resid(m), vlo = resid(lo);
+        if (vm === null || vlo === null) break;
+        if (vlo * vm <= 0) hi = m; else lo = m;
+      }
+      roots.push((lo + hi) / 2);
+    }
+    prev = { p: px, v: v };
+  }
+
+  for (const px of roots) {
+    if (resid(px) === null) continue;
+    const r = analyse();
+    const hit = isDiff ? (r.chk.EAP.diff && r.chk.EFP.image)
+                       : (r.chk.EAP.image && r.chk.EFP.diff);
+    if (hit) { const found = Object.assign({}, state.power);
+               Object.assign(state.power, keep); return found; }
+  }
+  Object.assign(state.power, keep);
+  return null;
+}
+
+/** Every ordered pair, so both role orders are tried -- scanning x versus y gives a different
+ *  residual with different poles, exactly as the B/C swap does for triples. */
+function pairCandidates(pool) {
+  const out = [];
+  for (let a = 0; a < pool.length; a++)
+    for (let b = 0; b < pool.length; b++)
+      if (a !== b) out.push([pool[a], pool[b]]);
+  return out;
+}
+
 const PROJ = ['PL1', 'PL2', 'PL3', 'PL4', 'EL'];    // upstream to downstream
+/** Lenses a solver can move, and which solve owns them. Everything else -- C1, OL1, OL2 -- is
+ *  set by hand only, so pinning it would mean nothing and it gets no hold checkbox. */
+const SOLVABLE = { C2:'illumination', C3:'illumination',
+                   PL1:'EELS', PL2:'EELS', PL3:'EELS', PL4:'EELS', EL:'EELS' };
+const HOLDABLE = LENSES.map(e => e.id).filter(id => id in SOLVABLE);
+/** "PL2 is held" / "PL2 and EL are held" -- for the solver banners. */
+function heldPhrase(list) {
+  return list.length === 1 ? list[0] + ' is held fixed'
+       : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] + ' are held fixed';
+}
 // Root-scan density. A second, 10x finer pass was measured to recover NOTHING the coarse
 // pass misses (identical failure sets over L = 1..1200 and M = 0.2..200) while pushing an
 // exhaustive miss from 0.19 s to 1.9 s -- it is the B/C role swap in tripleCandidates, not
@@ -865,6 +986,19 @@ function matchEelsPlanes() {
   const target = isDiff ? state.targetL : state.targetM;
   const name   = isDiff ? 'Diffraction-coupled' : 'Image-coupled';
   const before = Object.assign({}, state.power);
+  // With no target the free quantity stops being a condition, so the count drops from three
+  // lenses to two and the camera length becomes an output -- written back below.
+  const aim    = state.useTarget;
+  const need   = aim ? 3 : 2;
+  const quantity = isDiff ? 'camera length' : 'magnification';
+  /** what the solve achieved, formatted */ 
+  const got = r => isDiff ? 'L = ' + r.camEAP.toFixed(2) + ' mm (Mag ' + r.magEFP.toFixed(3)
+                            + '× at the focal plane)'
+                          : 'M = ' + r.magEAP.toFixed(3) + '× (L = ' + r.camEFP.toFixed(2)
+                            + ' mm at the focal plane)';
+  /** no-target: the achieved value IS the new target, so the slider tracks the result */
+  const writeBack = r => { if (!aim) { if (isDiff) state.targetL = r.camEAP;
+                                       else        state.targetM = r.magEAP; } };
 
   // Already there? Say so and touch nothing. Without this, holding EL at the defaults leaves
   // only PL1 and PL4 excited -- too few for a triple -- so the search would drop to the last
@@ -873,25 +1007,39 @@ function matchEelsPlanes() {
   const nowHit = isDiff ? (now.chk.EAP.diff && now.chk.EFP.image)
                         : (now.chk.EAP.image && now.chk.EFP.diff);
   const nowGot = isDiff ? now.camEAP : now.magEAP;
-  if (nowHit && Math.abs(nowGot - target) < Math.max(5e-4, target * 1e-5))
-    return ['ok', name + ' already at ' +
+  if (nowHit && (!aim || Math.abs(nowGot - target) < Math.max(5e-4, target * 1e-5))) {
+    writeBack(now);
+    return ['ok', name + ' already ' + (aim ? 'at ' : 'matched, at ') +
       (isDiff ? 'L = ' + now.camEAP.toFixed(2) + ' mm' : 'M = ' + now.magEAP.toFixed(3) + '×') +
       ' - no lens changed.'];
+  }
 
-  const usable  = id => !(state.holdEL && id === 'EL');
+  const held    = PROJ.filter(id => state.hold[id]);
+  const usable  = id => !state.hold[id];
   const excited = PROJ.filter(id => state.power[id] > 0 && usable(id));
   const all     = PROJ.filter(usable);
+
+  // Three conditions need three free lenses, so say plainly when the pins have taken the
+  // problem away rather than grinding through a search that cannot succeed.
+  if (all.length < need)
+    return ['bad', 'Only ' + (all.length === 0 ? 'no projector lenses are' :
+                              all.join(' + ') + (all.length === 1 ? ' is' : ' are')) +
+      ' free to move: ' + heldPhrase(held) + '. Matching both EELS planes' +
+      (aim ? ' at a chosen ' + quantity + ' is three conditions, so it needs at least three'
+           : ' is two conditions, so it needs at least two') +
+      ' free lenses.'];
 
   // The gentlest solution wins, so every candidate in the winning stage is solved rather
   // than stopping at the first hit.
   const best = (pool, N) => {
     let win = null, winCost = Infinity, winTrip = null;
-    for (const t of tripleCandidates(pool)) {
-      const got = solveTriple(t[0], t[1], t[2], mode, target, N);
-      if (!got) continue;
+    for (const t of (aim ? tripleCandidates(pool) : pairCandidates(pool))) {
+      const found = aim ? solveTriple(t[0], t[1], t[2], mode, target, N)
+                        : solvePair(t[0], t[1], mode, N);
+      if (!found) continue;
       let cost = 0;
-      for (const id of PROJ) cost += Math.abs(got[id] - before[id]);
-      if (cost < winCost) { winCost = cost; win = got; winTrip = t; }
+      for (const id of PROJ) cost += Math.abs(found[id] - before[id]);
+      if (cost < winCost) { winCost = cost; win = found; winTrip = t; }
     }
     return win ? { power: win, trip: winTrip } : null;
   };
@@ -907,30 +1055,32 @@ function matchEelsPlanes() {
   // it into a one-parameter family. Walk that family by scanning one lens and solving the
   // other three exactly at each step. Measured to reach M >= 1200 and L >= 30000 where no
   // triple exists, always leaving EL alone.
-  if (!hit) {
+  if (!hit && aim) {
     const q = bestQuad(mode, target, all, before);
     if (q) { hit = q; viaQuad = q.quad; }
   }
 
   if (!hit) {
-    return ['bad', 'No positive-focal-length setting of the projector lenses gives ' +
-      (isDiff ? 'a ' + target + ' mm camera length' : 'a magnification of ' + target + '×') +
-      ' with both EELS planes matched' + (state.holdEL ? ' while EL is held fixed' : '') +
-      '. Both image parities, every lens triple and every four-lens family were searched.'];
+    return ['bad', 'No positive-focal-length setting of the projector lenses ' +
+      (aim ? 'gives ' + (isDiff ? 'a ' + target + ' mm camera length'
+                                : 'a magnification of ' + target + '×') + ' with both EELS planes matched'
+           : 'matches both EELS planes') +
+      (held.length ? ' while ' + heldPhrase(held) : '') + '. ' +
+      (aim ? 'Both image parities, every lens triple and every four-lens family were searched.'
+           : 'Every lens pair was searched, in both role orders.')];
   }
 
   Object.assign(state.power, hit.power);
   const r = analyse();
+  writeBack(r);
   const switched = PROJ.filter(id => before[id] === 0 && state.power[id] > 0);
   const used = hit.trip.slice().sort((a, b) => BY_ID[a].z - BY_ID[b].z);
-  return ['ok', name + ' at ' +
-    (isDiff ? 'L = ' + r.camEAP.toFixed(2) + ' mm (Mag ' + r.magEFP.toFixed(3) + '× at the focal plane)'
-            : 'M = ' + r.magEAP.toFixed(3) + '× (L = ' + r.camEFP.toFixed(2) + ' mm at the focal plane)') +
+  return ['ok', name + (aim ? ' at ' : ' matched - the ' + quantity + ' came out at ') + got(r) +
     ' using ' + used.join(' + ') + ': ' +
     used.map(id => id + ' ' + (1 / state.power[id]).toFixed(2)).join(', ') + ' mm.' +
     (viaQuad ? ' Needed four lenses at once (' + viaQuad.join(' + ') + ') - no triple could.' : '') +
     (switched.length ? ' Switched on ' + switched.join(' and ') + ' - no solution existed without.' : '') +
-    (state.holdEL ? ' EL held fixed.' : '')];
+    (held.length ? ' ' + heldPhrase(held) + '.' : '')];
 }
 
 /* ================================================================
@@ -944,7 +1094,7 @@ const idx = { lens: {}, voa: -1, rays: [] };
 let W = 0, H = 0, sx = 1, dpr = 1, BAND = 0, MID = 0, TOPBAND = 0, HALF = 0;
 let renderScale = 1;                                    // >1 only while exporting a hi-res PNG
 const LBL_ROWS = 3, LBL_PITCH = 24, LBL_SIZE_DY = 11;   // bottom label band geometry, CSS px
-const TOP_H = 115, DZ_ROW = 24;                         // top control band, dz row, CSS px
+const TOP_H = 131, DZ_ROW = 24;                         // top control band, dz row, CSS px
 /** The focal-length boxes are staggered into two rows so they can be wide enough to read.
  *  The tightest lens pair is OL1/OL2 at 44 mm, about 27 px on a 1280 px window -- far too narrow
  *  for a number. Rows are assigned by a greedy pack in z (MILLIMETRES, not pixels) so the
@@ -954,6 +1104,9 @@ const TOP_H = 115, DZ_ROW = 24;                         // top control band, dz 
  *  profile across the column, and a compensating top margin keeps them aligned. */
 const LENS_ROWS = 2, LENS_SEP_MM = 120, LENS_ROW_DY = 20;
 const F_BOX_MIN = 34, F_BOX_MAX = 56;                   // 56px shows 9 chars at 9.5px monospace
+/** Foot of the stack, below the sliders: the hold pins line up across the column so the pinned
+ *  set can be read at a glance. Costs 16px of TOP_H, which comes out of the beam envelope. */
+const HOLD_ROW_DY = 16;
 /** Where drawOverlay packed each element's label, in CSS px -- the canvas-mounted
  *  controls are positioned from these so the two can never disagree. */
 const LABEL_POS = {};
@@ -1189,6 +1342,10 @@ function buildControls() {
     '<div class="lensctl" id="row_' + e.id + '" title="' + e.label + '">' +
       '<input type="number" id="f_' + e.id + '" step="0.01" min="' + F_MIN + '">' +
       '<input type="range"  id="p_' + e.id + '" min="0" max="' + (SLIDER_STEPS + 1) + '" step="1">' +
+      (e.id in SOLVABLE
+        ? '<input type="checkbox" class="hold" id="h_' + e.id + '" title="Hold ' + e.label +
+          ' fixed - the ' + SOLVABLE[e.id] + ' solve may not move it">'
+        : '') +
     '</div>').join('');
 
   // dz is horizontal, tucked under the Sample label -- the sample plane is only ~26 px
@@ -1204,7 +1361,11 @@ function buildControls() {
     '<div class="row"><span class="unit" id="alEcho"></span></div>';
 
   el$('camrow').innerHTML =
-    '<div class="row on"><label id="clLabel">L (mm)</label>' +
+    '<div class="row on hastgt" id="camtgt">' +
+      '<input type="checkbox" id="cbTarget" checked title="Aim for this value as well as ' +
+        'matching both EELS planes. Clear it and the two plane conditions are solved on their ' +
+        'own - two lenses instead of three - and whatever falls out is written back here.">' +
+      '<label id="clLabel">L (mm)</label>' +
       '<input type="range" id="p_cl" min="0" max="3.1" step="0.004">' +
       '<input type="number" id="f_cl" step="0.1" min="0.5"></div>' +
     '<div class="row"><span class="unit" id="magEcho"></span></div>';
@@ -1259,7 +1420,12 @@ function buildControls() {
   });
   el$('p_th').addEventListener('input', () => { if (state.showDiff) fitK(); });
   el$('cbMark').addEventListener('change', e => { state.showMark = e.target.checked; refresh(); });
-  el$('cbHoldEL').addEventListener('change', e => { state.holdEL = e.target.checked; flash(null); refresh(); });
+  // The EL pin has two views -- the panel checkbox and EL's own pin on the figure -- but one
+  // piece of state, so either can drive it and syncInputs keeps them agreeing.
+  el$('cbTarget').addEventListener('change', e => { state.useTarget = e.target.checked; flash(null); refresh(); });
+  el$('cbHoldEL').addEventListener('change', e => { state.hold.EL = e.target.checked; flash(null); refresh(); });
+  for (const id of HOLDABLE)
+    el$('h_' + id).addEventListener('change', e => { state.hold[id] = e.target.checked; flash(null); refresh(); });
   el$('bFocus').addEventListener('click', () => { flash(focusProbeOnSample());  refresh(); });
   el$('bColl' ).addEventListener('click', () => { flash(collimateOnSample());   refresh(); });
   el$('bEels' ).addEventListener('click', () => { flash(matchEelsPlanes());     refresh(); });
@@ -1271,7 +1437,8 @@ function buildControls() {
     for (const e of LENSES) state.power[e.id] = 1 / e.f;
     state.voaR = BY_ID.VOA.r; state.nRays = 15; state.thetaB = 10;
     state.targetL = 28.2; state.targetM = 10; state.coupling = 'diff'; state.sampleDz = 0;
-    state.holdEL = true;  el$('cbHoldEL').checked = true;
+    state.useTarget = true;
+    for (const e of LENSES) state.hold[e.id] = !!HOLD_DEFAULTS[e.id];
     state.showDiff = true; el$('cbDiff').checked = true;
     state.alpha = 15; state.illumMode = 'focus';
     flash(null); fitK(); refresh();
@@ -1399,7 +1566,9 @@ function syncInputs() {
     el$('p_' + e.id).value = powerToSlider(p);
     el$('f_' + e.id).value = isFinite(f) ? +f.toFixed(2) : '';
     el$('f_' + e.id).placeholder = isFinite(f) ? '' : 'off';
-    el$('row_' + e.id).className = 'lensctl ' + (p > 0 ? 'on' : 'off');
+    el$('row_' + e.id).className = 'lensctl ' + (p > 0 ? 'on' : 'off')
+                                 + (state.hold[e.id] ? ' pinned' : '');
+    if (e.id in SOLVABLE) el$('h_' + e.id).checked = state.hold[e.id];
   }
   el$('p_al').value = alphaToSlider(state.alpha);
   el$('f_al').value = +state.alpha.toFixed(2);
@@ -1410,13 +1579,22 @@ function syncInputs() {
   const isD = state.coupling === 'diff', tgt = isD ? state.targetL : state.targetM;
   el$('clLabel').innerHTML = isD ? 'L (mm)' : 'M (&times;)';
   el$('p_cl').value = Math.log10(tgt);  el$('f_cl').value = +tgt.toFixed(2);
-  el$('magEcho').innerHTML = isD
+  // with no target the value is an output, so the control is shown but not editable
+  el$('cbTarget').checked = state.useTarget;
+  el$('p_cl').disabled = el$('f_cl').disabled = !state.useTarget;
+  el$('camtgt').className = 'row on hastgt' + (state.useTarget ? '' : ' notgt');
+  el$('eelsSub').textContent = state.useTarget
+    ? 'three projector lenses at a time, every combination; four if needed'
+    : 'two projector lenses at a time, every pair; the camera length falls out';
+  el$('magEcho').innerHTML = !state.useTarget
+    ? 'no target &middot; two plane conditions, two lenses &middot; the value above is what came out'
+    : isD
     ? 'locks Mag = ' + D_EELS + '/L = ' + (D_EELS / state.targetL).toFixed(2) + '&times; at the focal plane'
     : 'locks L = ' + D_EELS + '/M = ' + (D_EELS / state.targetM).toFixed(2) + ' mm at the focal plane';
   for (const btn of el$('couple').querySelectorAll('button'))
     btn.className = (btn.dataset.mode === state.coupling) ? 'on' : '';
   el$('p_dz').value = state.sampleDz;  el$('f_dz').value = +state.sampleDz.toFixed(2);
-  el$('cbHoldEL').checked = state.holdEL;    // otherwise state and box can drift apart
+  el$('cbHoldEL').checked = state.hold.EL;   // otherwise state and box can drift apart
   el$('cbDiff').checked   = state.showDiff;
   el$('cbMark').checked   = state.showMark;
 
@@ -1541,10 +1719,12 @@ function selftest() {
     all = all && ok;
   };
 
+  const clearHolds = () => { for (const e of LENSES) state.hold[e.id] = false; };
+
   for (const e of LENSES) state.power[e.id] = 1 / e.f;
   state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.coupling = 'diff';
-  state.alpha = 15; state.illumMode = 'focus'; state.holdEL = false;
-  state.thetaB = 10; state.showDiff = true;
+  state.alpha = 15; state.illumMode = 'focus'; clearHolds();
+  state.thetaB = 10; state.showDiff = true; state.useTarget = true;
   state.targetL = 28.2; state.targetM = 10;
   const r = analyse();
 
@@ -1589,7 +1769,8 @@ function selftest() {
 
   // --- focus the probe with C3 (was OL1) ---
   const restore = () => { for (const e of LENSES) state.power[e.id] = 1 / e.f;
-                          state.holdEL = false; state.sampleDz = 0; state.thetaB = 10;
+                          clearHolds(); state.sampleDz = 0; state.thetaB = 10;
+                          state.useTarget = true;
                           state.alpha = 15; state.illumMode = 'focus'; };
   restore();
   state.power.C2 = 1 / 61; state.power.C3 = 1 / 61;   // detune both, then solve back
@@ -1748,15 +1929,119 @@ function selftest() {
 
   // hold EL: the EELS lens must come back bit-identical in both regimes
   for (const m of ['diff', 'img']) {
-    restore(); state.holdEL = true; state.coupling = m;
+    restore(); state.hold.EL = true; state.coupling = m;
     state.targetL = 80; state.targetM = 10;      // NOT 28.2: the column already meets L = 28.2,
                                                  // so the guard would short-circuit the test
     const elBefore = state.power.EL;
     const hr = matchEelsPlanes();
     chk('holdEL ' + m + ': EL unchanged', state.power.EL, elBefore, 0);
-    if (hr[0] === 'ok') chk('holdEL ' + m + ': says so', /EL held fixed/.test(hr[1]) ? 1 : 0, 1, 0);
+    if (hr[0] === 'ok') chk('holdEL ' + m + ': says so', /EL is held fixed/.test(hr[1]) ? 1 : 0, 1, 0);
   }
-  state.holdEL = false;
+  clearHolds();
+
+  // --- per-lens holds ---
+  chk('hold: EL is the only shipped pin',
+      Object.keys(HOLD_DEFAULTS).filter(k => HOLD_DEFAULTS[k]).join(',') === 'EL' ? 1 : 0, 1, 0);
+  restore();
+  chk('hold: restore() frees everything',
+      LENSES.filter(e => state.hold[e.id]).length, 0, 0);
+  // only lenses a solver can move carry a pin -- C1, OL1 and OL2 are hand-set, so no checkbox
+  chk('hold: pins are on the solvable lenses only',
+      HOLDABLE.join(' ') === 'C2 C3 PL1 PL2 PL3 PL4 EL' ? 1 : 0, 1, 0);
+
+  // a pinned lens must come back bit-identical, whichever one it is
+  for (const id of ['PL1', 'PL2', 'PL4', 'EL']) {
+    restore(); state.hold[id] = true;
+    state.coupling = 'diff'; state.targetL = 80;
+    const was = state.power[id];
+    const hres = matchEelsPlanes();
+    chk('hold ' + id + ': unchanged by the solve', state.power[id], was, 0);
+    if (hres[0] === 'ok')
+      chk('hold ' + id + ': banner says so', new RegExp(id + ' is held fixed').test(hres[1]) ? 1 : 0, 1, 0);
+  }
+
+  // three conditions need three free lenses -- pin enough and it must refuse, and say why,
+  // rather than grinding through a search that cannot succeed
+  restore(); state.coupling = 'diff'; state.targetL = 80;
+  state.hold.PL1 = true; state.hold.PL2 = true; state.hold.PL3 = true;
+  const tooFew = matchEelsPlanes();
+  chk('hold: too few free lenses refuses', tooFew[0] === 'bad' ? 1 : 0, 1, 0);
+  chk('hold: names the reason', /at least three free lenses/.test(tooFew[1]) ? 1 : 0, 1, 0);
+  restore(); state.coupling = 'diff'; state.targetL = 80;
+  for (const id of PROJ) state.hold[id] = true;
+  const allPinned = matchEelsPlanes();
+  chk('hold: all pinned refuses',  allPinned[0] === 'bad' ? 1 : 0, 1, 0);
+  chk('hold: all pinned moved nothing',
+      PROJ.every(id => state.power[id] === 1 / BY_ID[id].f) ? 1 : 0, 1, 0);
+  clearHolds();
+
+  // the illumination solve owns C2 + C3 together, so a pin on either must stop it dead
+  for (const id of ['C2', 'C3']) {
+    restore(); state.hold[id] = true;
+    const before2 = { C2: state.power.C2, C3: state.power.C3 };
+    state.alpha = 25;
+    const ires = focusProbeOnSample();
+    chk('hold ' + id + ': illumination refuses', ires[0] === 'bad' ? 1 : 0, 1, 0);
+    chk('hold ' + id + ': needs both C2 and C3',
+        /needs both C2 and C3/.test(ires[1]) ? 1 : 0, 1, 0);
+    chk('hold ' + id + ': C2 untouched', state.power.C2, before2.C2, 0);
+    chk('hold ' + id + ': C3 untouched', state.power.C3, before2.C3, 0);
+  }
+  clearHolds(); restore();
+
+  // --- no-target mode: the two plane conditions on their own, two lenses, L falls out ---
+  chk('no-target: aiming is on by default', state.useTarget ? 1 : 0, 1, 0);
+  const unmatch = () => { state.power.PL1 = 1 / 40; };   // knock the planes off first
+  for (const m of ['diff', 'img']) {
+    restore(); state.useTarget = false; state.coupling = m; unmatch();
+    const pre = analyse();
+    chk('no-target ' + m + ': starts unmatched',
+        ((m === 'diff' ? (pre.chk.EAP.diff && pre.chk.EFP.image)
+                       : (pre.chk.EAP.image && pre.chk.EFP.diff)) ? 0 : 1), 1, 0);
+    const nt = matchEelsPlanes(), ntR = analyse();
+    chk('no-target ' + m + ': solves', nt[0] === 'ok' ? 1 : 0, 1, 0);
+    chk('no-target ' + m + ': planes matched',
+        ((m === 'diff' ? (ntR.chk.EAP.diff && ntR.chk.EFP.image)
+                       : (ntR.chk.EAP.image && ntR.chk.EFP.diff)) ? 1 : 0), 1, 0);
+    chk('no-target ' + m + ': slider follows the result',
+        m === 'diff' ? state.targetL : state.targetM,
+        m === 'diff' ? ntR.camEAP    : ntR.magEAP, 1e-12);
+    chk('no-target ' + m + ': banner says it came out',
+        /came out at/.test(nt[1]) ? 1 : 0, 1, 0);
+    // the invariant pairs the two planes crosswise, and which is which swaps with the regime:
+    // diffraction coupling has L at the aperture and M at the focal plane, image coupling the
+    // mirror -- the other two are identically zero, so pairing them the wrong way gives 0.
+    chk('no-target ' + m + ': L * M = D',
+        m === 'diff' ? ntR.camEAP * ntR.magEFP : ntR.magEAP * ntR.camEFP, D_EELS, 1e-6);
+  }
+
+  // two free lenses really is the floor -- exactly two must work, one must refuse
+  restore(); state.useTarget = false; state.coupling = 'diff';
+  state.hold.EL = true; state.hold.PL2 = true; state.hold.PL3 = true;   // PL1 + PL4 free
+  unmatch();
+  const nt2 = matchEelsPlanes(), nt2R = analyse();
+  chk('no-target: two free lenses is enough', nt2[0] === 'ok' ? 1 : 0, 1, 0);
+  chk('no-target: two-lens planes matched',
+      (nt2R.chk.EAP.diff && nt2R.chk.EFP.image) ? 1 : 0, 1, 0);
+  chk('no-target: pinned EL untouched', state.power.EL, 1 / BY_ID.EL.f, 0);
+  chk('no-target: pinned PL2 untouched', state.power.PL2, 0, 0);
+
+  restore(); state.useTarget = false; state.coupling = 'diff';
+  for (const id of ['EL', 'PL2', 'PL3', 'PL4']) state.hold[id] = true;  // only PL1 free
+  unmatch();
+  const nt1 = matchEelsPlanes();
+  chk('no-target: one free lens refuses', nt1[0] === 'bad' ? 1 : 0, 1, 0);
+  chk('no-target: names the two-lens floor',
+      /at least two free lenses/.test(nt1[1]) ? 1 : 0, 1, 0);
+
+  // already matched: report it, change nothing, and still write the value back
+  restore(); state.useTarget = false; state.coupling = 'diff'; state.targetL = 999;
+  const povNT = PROJ.map(id => state.power[id]);
+  const ntAlready = matchEelsPlanes();
+  chk('no-target: already matched says so', /already matched/.test(ntAlready[1]) ? 1 : 0, 1, 0);
+  chk('no-target: already matched moved nothing', PROJ.map(id => state.power[id]), povNT, 0);
+  chk('no-target: already matched wrote back', state.targetL, analyse().camEAP, 1e-12);
+  clearHolds(); restore();
 
   // --- log focal-length slider round-trips across the whole span ---
   chk('slider: off maps to 0',      sliderToPower(0),            0,     0);
@@ -1769,7 +2054,7 @@ function selftest() {
   }
 
   // --- shipped defaults, and the already-matched guard ---
-  restore(); state.holdEL = true; state.coupling = 'diff'; state.targetL = 28.2;
+  restore(); state.hold.EL = true; state.coupling = 'diff'; state.targetL = 28.2;
   const povBefore = PROJ.map(id => state.power[id]);
   const already = matchEelsPlanes();
   chk('guard: reports ok',        already[0] === 'ok' ? 1 : 0, 1, 0);
@@ -1842,8 +2127,9 @@ function selftest() {
   // the suite mutates state freely; hand the app back exactly as it ships
   for (const e of LENSES) state.power[e.id] = 1 / e.f;
   state.voaR = BY_ID.VOA.r; state.sampleDz = 0; state.alpha = 15; state.illumMode = 'focus';
-  state.coupling = 'diff'; state.targetL = 28.2; state.targetM = 10;
-  state.holdEL = true; state.thetaB = 10; state.showDiff = true; state.showMark = true;
+  state.coupling = 'diff'; state.targetL = 28.2; state.targetM = 10; state.useTarget = true;
+  for (const e of LENSES) state.hold[e.id] = !!HOLD_DEFAULTS[e.id];
+  state.thetaB = 10; state.showDiff = true; state.showMark = true;
 
   window.__selftest = { all: all, out: out };
 }

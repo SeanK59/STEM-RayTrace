@@ -98,10 +98,17 @@ power profile across the column -- about
 0.86% per step from 10000 mm down to the 2 mm limit, so a 91 mm and a 4 mm lens are equally easy to
 dial, with a dedicated **off** (1/f = 0) at the bottom of travel. Up is stronger. Sample defocus is
 the horizontal slider under the Sample label, and the alpha slider sits at the top of the Actions
-panel. Everything in the
-**Display** panel is cosmetic and changes no computed value. The VOA is fixed at 30 um radius.
+panel. The **Display** panel is cosmetic with one exception: theta_B sets the +/-1 Bragg spacing
+reported at the aperture. Nothing in it moves a plane. The VOA is fixed at 30 um radius.
 Under every element label is the **primary beam radius** at that plane, and the readout sits
 underneath the figure in four groups.
+
+The **checkbox at the foot of a lens stack pins that lens**: a solve may not move a pinned lens.
+**EL is pinned on a fresh load** -- holding the EELS lens while PL1-PL4 do the work is the common
+case -- and nothing else is. Only the seven lenses a solve can reach carry one -- C2 and C3, owned
+by the illumination solve, and PL1-PL4 plus EL, owned by the EELS solve. C1, OL1 and OL2 are set by
+hand only, so a pin there would mean nothing and they have none. A pinned lens is drawn with an
+accent border and a dimmed slider, so the pinned set reads at a glance.
 
 The **copy** and **save** buttons at the top-right of the figure export it as a PNG at **2x** the
 on-screen resolution (about 2100 x 1200 from a 1050 px stage). The controls are HTML layered over
@@ -114,7 +121,7 @@ The action buttons:
 |---|---|---|
 | Focus probe on sample | C2 + C3 | crossover at the reference plane, at the chosen alpha (alpha = 15 gives C2 5, C3 55) |
 | Collimate probe on sample | C2 + C3 | axial slope zero there, at the chosen alpha (alpha = 1 gives C2 3.822, C3 49.831) |
-| Match EELS planes | three projector lenses at a time, four if needed | either coupling regime, selected by the toggle above it |
+| Match EELS planes | three projector lenses at a time, four if needed -- or **two** with no target | either coupling regime, selected by the toggle above it |
 
 ### Reference plane vs specimen
 
@@ -226,9 +233,47 @@ drawn from PL1, PL2, PL3, PL4 and EL, in stages:
 3. still nothing: solve **four at once** (see below)
 
 Every candidate in the winning stage is solved and the **gentlest** one wins, scored by the total
-change in lens power. **Hold EL fixed** is on by default and drops EL from the free set, so the EELS lens keeps
-whatever value you gave it and the solve uses PL1-PL4 only; combined with the coupling toggle that
-gives all four cases.
+change in lens power.
+
+**Pinning** removes a lens from the free set for the whole search, including the four-lens stage, so
+the solve works around whatever you have fixed. Three conditions need three unknowns, so the EELS
+solve needs **at least three free projector lenses**; pin more than two of the five and it refuses
+up front and names what is pinned rather than grinding through a search that cannot succeed. The
+**Hold EL fixed** checkbox in the Actions panel is the same pin as EL's own box on the figure --
+one flag, two views -- kept because holding the EELS lens is the common case; combined with the
+coupling toggle it gives all four cases.
+
+The illumination solve has no slack to give: it sets the mode *and* the convergence angle with
+exactly C2 and C3, two conditions against two unknowns, so pinning either one stops it outright
+with a message saying so.
+
+### Solving without a target
+
+The checkbox beside the camera length decides whether that value is an input at all. It is **on by
+default**, which is the behaviour above: L (or M) is a third condition, and three conditions need
+three free projector lenses.
+
+Clear it and the target stops being a condition. The solve then matches the two planes on their own,
+which is **two conditions and therefore two lenses** -- every pair, in both role orders, gentlest
+wins -- and whatever camera length falls out is **written back to the slider**, so the control turns
+into a readout. Turning the checkbox back on then aims at what was just found.
+
+Whether a given pair has a solution depends on where the lenses you did *not* free are sitting. From
+the shipped column all six PL pairs solve, with EL held:
+
+| free pair | L (mm) | the two focal lengths |
+|---|---:|---|
+| PL1 + PL4 | **28.20** | 66.679 / 41.333 -- the shipped column itself |
+| PL1 + PL4 (other root) | 3.95 | 175.998 / 29.370 |
+| PL1 + PL2 | 24.04 | 71.351 / 555.272 |
+| PL3 + PL4 | 12.83 | 26.965 / 16.935 |
+| PL2 + PL3 | 10.17 | 20.747 / 33.805 |
+| PL1 + PL3 | 8.67 | 118.208 / 135.892 |
+| PL2 + PL4 | 4.63 | 31.713 / 23.595 |
+
+With every other projector switched off instead, **none** of the pairs solve -- so two is the degree
+of freedom count, not a guarantee. The four-lens stage does not run without a target: it exists to
+extend *reach* toward a value you named, and there is no value to reach.
 
 ### Why three lenses, not four
 
