@@ -18,7 +18,7 @@ python -m http.server 8123 --directory .
 
 Element positions are **measured off the microscope** and fixed; focal lengths are freely
 adjustable (positive only). `z` is measured in mm from the source crossover. The table lives in
-`column.js`.
+`column.js`, the one file both pages of this repo load.
 
 | Element | z (mm) | default f (mm) |
 |---|---:|---:|
@@ -423,6 +423,70 @@ Worked example: Si {111}, d = 3.1355 A, at 200 kV (lambda = 2.5079 pm) deflects 
 `lambda / d = 8.00 mrad`. Set theta_B = 8.0 and the shipped 28.2 mm camera length predicts
 `2 * 28.2 * 0.008 = 0.451 mm` between the +g and -g spots. Measure something else, and the real
 camera length is `measured / 0.016` mm.
+
+## Wave-optics view
+
+`wave.html` is the same column -- the same `column.js`, the same thin lenses, the same lens settings --
+with electron-wave mechanics added and nothing else. Open it from the ray page's **wave-optics view**
+link and it starts from that page's lenses (they travel in the URL hash); leave both open and it
+follows every change live over a `BroadcastChannel`. The ray page stays the control panel. The wave
+page adds only what a ray cannot carry: the accelerating voltage (30 / 80 / 200 kV), the probe's
+residual aberrations, and a specimen.
+
+It draws two planes:
+
+* **the specimen** -- the probe intensity, or the specimen's phase
+* **any plane downstream** -- the EELS aperture (default), the EELS focal plane, or any z
+
+**The probe** is the converging wave the ray model describes, a sharp cone of half-angle alpha, with
+the aberration phase in Krivanek notation up to third order:
+`chi = (2 pi / lambda) * sum theta^(n+1)/(n+1) * [C_nm,a cos(m phi) + C_nm,b sin(m phi)]` for
+C10, C12, C21, C23, C30, C32, C34, in nm. The **Nion residuals** button loads 2 nm at first order,
+20 nm at second and 200 nm at third. The ray page's probe defocus -- how far the specimen sits past the
+crossover -- is added to C10, so moving the specimen on the ray page defocuses the probe here. Under
+parallel illumination the incident wave is a plane wave.
+
+**Propagation** uses the column's own transfer matrix from the specimen, through the Collins
+integral, which is the wave-optical form of the ABCD matrix the ray page draws with. It is evaluated
+two ways, each exact where it samples well, split at `|B/A| = z* = N dx^2 / lambda`:
+
+* near a diffraction plane: a pre-chirp and one FFT (at A = 0, a pure scaled Fourier transform)
+* near an image plane: an angular-spectrum propagation over B/A, then a magnification A
+
+At the EELS aperture in diffraction coupling that gives CBED discs of radius L*alpha at spacing
+L*lambda/d, exactly where the ray page puts the beam edge and its Bragg discs (the optional dashed
+overlay). The EELS limiting aperture is ignored: every electron reaches every plane.
+
+**The window** is chosen per render so the pixel resolves every angle present -- the probe cone plus
+two Bragg orders, times an oversample factor -- and is then N pixels of that, nudged to a whole number
+of lattice periods. A probe defocused past what the window holds is flagged and not drawn; at 20 mrad
+and 512 pixels that is about 250 nm of defocus, far less than the ray page's +/- 1 mm `dz`.
+Use C10 for fine defocus, or raise the grid. A 512 x 512 render takes about 70 - 90 ms, and
+1024 x 1024 about 0.4 s.
+
+**Specimens** are thin phase objects:
+
+* a square lattice, `t = exp(i sigma [cos(2 pi x/d) + cos(2 pi y/d)])`, whose orders sit at
+  +/- lambda/d along x and y (Si {111}, d = 3.1355 A, is the default)
+* amorphous carbon, as a Gaussian-correlated random phase screen
+* vacuum
+
+There is no multislice, absorption, inelastic scattering, partial coherence or chromatic spread.
+
+`wave.html?selftest` checks the machinery against closed-form results:
+
+* the FFT (Parseval, and a round trip to 4e-16)
+* the aberration-free probe's FWHM against the Airy value 0.5145 lambda/alpha (within 0.1%)
+* a Gaussian beam propagated to five planes, spanning both evaluations, against its analytic width
+  (agreement to better than 1e-6)
+* the CBED disc radius against L*alpha, and the +/-1 spacing against 2 L lambda/d (each within one
+  pixel)
+* the 1.10 mm direct-beam radius at 39 mrad
+* the out-of-window flag
+* the hand-off decoding
+
+The ray page's own self-test asserts that `column.js`'s `illumination()` and `transfer()` agree with
+its tracer in every regime, so the two pages share one geometry by construction.
 
 ## Limits
 
