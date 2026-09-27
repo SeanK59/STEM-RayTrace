@@ -17,64 +17,86 @@ python -m http.server 8123 --directory .
 ## The column
 
 Element positions are **measured off the microscope** and fixed; focal lengths are freely
-adjustable (positive only). `z` is measured in mm from the source crossover.
+adjustable (positive only). `z` is measured in mm from the source crossover. The table lives in
+`column.js`.
 
 | Element | z (mm) | default f (mm) |
 |---|---:|---:|
 | Source (point) | 0 | -- |
-| C1 | 120 | 120 |
-| VOA aperture | 180 | r = 0.030 mm |
-| C2 | 240 | 5 |
-| C3 | 300 | 55 |
-| OL1 | 763 | 22 |
+| C1 | 120 | off (1/f = 0) |
+| VOA aperture | 180 | 30 um diameter (r = 0.015 mm) |
+| C2 | 240 | 21.8181818182 (= 240/11) |
+| C3 | 300 | 36 |
+| OL1 (objective pre-field) | 783 | 2 |
 | **Reference plane** (virtual) | 785 | -- |
-| OL2 | 807 | 22 |
-| PL1 | 910 | 66.6794389630 |
-| PL2 | 1030 | off (1/f = 0) |
+| OL2 (objective post-field) | 787 | 2 |
+| PL1 | 910 | 56.0828398219 |
+| PL2 | 1030 | 13.5835644681 |
 | PL3 | 1090 | off (1/f = 0) |
-| PL4 | 1150 | 41.3326263201 |
-| EL (EELS lens) | 1350 | 91.3748845769 |
+| PL4 | 1150 | 14.0309991241 |
+| EL (EELS lens) | 1350 | 105 |
 | **EELS aperture plane** (virtual) | 1550 | -- |
 | **EELS focal plane** (virtual) | 1595 | -- |
 
+No round lens may be stronger than **f = 4 mm**; the objective's limit is **1.5 mm**.
+
 At the defaults:
 
-* images of the reference plane at **z = 976.68, 1204.28, 1595** -- the EELS focal plane is
-  conjugate to it. The illumination crossovers are at **z = 245, 785, 976.68, 1204.28, 1595**,
+* images of the reference plane at **z = 966.08, 1047.25, 1166.25, 1595** -- the EELS focal plane is
+  conjugate to it. The illumination crossovers are at **z = 264, 785**, then the same image planes,
   so the probe is focused on the reference plane
-* diffraction planes at **z = 829, 1181.76, 1550** -- the EELS aperture plane sits on the
-  sample's diffraction plane, and 829 is OL2's back focal plane
-* PL2 and PL3 are off
+* diffraction planes at **z = 789, 1014.53, 1141.58, 1550** -- the EELS aperture plane sits on the
+  sample's diffraction plane, and 789 is OL2's back focal plane
+* C1 and PL3 are off
 * sample to EELS focal plane magnification **1.596x** (= D/L = 45/28.2)
-* camera length at the EELS aperture **28.2 mm** (a radian is dimensionless, so r = L*theta
-  gives a length; at 15 mrad that puts the direct beam at 0.423 mm radius, which is exactly
-  the beam radius printed under the EELS aperture label). This is the value the real column
-  runs: at **39 mrad it puts the direct beam at 1.10 mm radius on the aperture**, measured on
-  the microscope, and that measurement is what the projector defaults are set from
-* convergence semi-angle **alpha = 15 mrad**, set by C2 + C3 against the fixed aperture
+* camera length at the EELS aperture **28.2 mm** (a radian is dimensionless, so r = L*theta gives a
+  length; at 15 mrad that puts the direct beam at 0.423 mm radius, which is exactly the beam radius
+  printed under the EELS aperture label). This is the value the real column runs: at **39 mrad it
+  puts the direct beam at 1.10 mm radius on the aperture**, measured on the microscope, and that
+  measurement is what the projector defaults are set from
+* convergence semi-angle **alpha = 15 mrad**, set by C2 + C3 against the fixed aperture with C1 off:
+  C2 makes a crossover at 264, which is C3's front focal point, so C3 sends a parallel beam to OL1
 
-The condenser and objective defaults are round, and for a reason: **C1's focal length is the
-source distance**, so C1 collimates the source and the VOA sits in a parallel beam where only
-its diameter matters; **C2 + C3 sum to their own 60 mm spacing**, so they form an afocal relay;
-and **OL1 = OL2 = half the 44 mm objective gap**, so the sample sits at OL1's back focal plane
-and OL2's front focal plane. That structure makes the convergence angle exactly
+### The objective
 
-> **alpha = r_VOA * f_C3 / (f_OL1 * f_C2)**, in which f_C1 cancels -- on this column
-> **1.364 * (f_C3 / f_C2) mrad**
+The UltraSTEM 200's Riecke-Ruska condenser-objective: a **4 mm pole-piece gap** and **f = 2 mm** for
+both its pre-field and its post-field (Dellby et al. 2011). It is modelled as two thin lenses on the
+pole faces, OL1 and OL2, 2 mm either side of the specimen, and driven by **one control**: its halves are
+always equally excited, and 4 mm is too close for two control stacks anyway.
 
-so the round pair C2 = 5, C3 = 55 gives exactly 15 mrad. The **projectors** get no such luck:
-PL1 / PL4 / EL are the exact solve for a 28.2 mm camera length on measured spacings, and those
-digits are load-bearing -- rounding them to 4 dp moves the EELS planes by 3e-4 mm.
+With f = 2 mm on the pole faces, the specimen sits **exactly on OL1's back focal plane** and on OL2's
+front focal plane. A parallel beam into OL1 is focused on the specimen, so the convergence angle is the
+beam radius at OL1 over f_OL1. OL2 sends the specimen's image to infinity -- the first real image is
+PL1's -- and puts the diffraction pattern on its back focal plane at 789. Parallel illumination needs
+the condenser crossover on OL1's front focal plane, at 781.
 
-**Why the objective gap is 44 mm.** The same identity caps the convergence angle at
-`alpha_max = r_VOA * 29 / f_OL1 = 0.87 / f_OL1` once C2 hits the 2 mm strength limit. The column
-is run at 39 mrad, which needs `f_OL1 <= 22.3 mm`, i.e. a gap of at most about 44.6 mm. At 44 mm
-the ceiling is 39.55 mrad and 39 mrad solves with C2 at 2.027 mm, just inside the limit.
+A condenser beam that is not quite parallel moves the probe crossover off the specimen by Newton's
+f^2/x, for a condenser crossover a distance x from OL1's front focal plane -- about 8 um for one near
+C3, on one side or the other depending on which side of that plane it sits. That is the scale of the
+"sample-level beam crossover a few um above the center of the objective lens" that Dellby et al.
+describe as normal operation.
+
+Krivanek et al. 2008 quote f = 1.5 mm, a 1.5 mm bore and Cc about 1 mm for the earlier 100 kV
+objective; Dellby et al. describe the lens redesigned for 200 kV. The **VOA** is 30 um in diameter,
+the value Krivanek et al. give as typical.
+
+The **projectors** are the exact solve for a 28.2 mm camera length with EL at a round 105 mm. EL is
+the free parameter of a one-parameter family of four-lens solutions, and 105 mm is its gentlest
+member -- strongest lens 13.58 mm. The digits are load-bearing: rounding them to 4 dp moves the EELS
+planes by about 1e-4 mm.
 
 A useful consequence of the 45 mm aperture-to-focal gap: **L * M = 45 exactly**, where L is the
 camera length at one EELS plane and M the magnification at the other.
 
-(The coupling lens is called **EL**, for EELS lens, leaving CL free to mean condenser lens.)
+(The coupling lens is called **EL**, for EELS lens, leaving CL free to mean condenser lens. On the
+real column that job is done by a quadrupole-octupole coupling module; see Limits.)
+
+References:
+
+- N. Dellby et al., "Dedicated STEM for 200 to 40 keV operation", *Eur. Phys. J. Appl. Phys.* **54**,
+  33505 (2011).
+- O. L. Krivanek et al., "An electron microscope for the aberration-corrected era",
+  *Ultramicroscopy* **108**, 179-195 (2008).
 
 ## How it works
 
@@ -88,27 +110,31 @@ Two engines share one element table, so they cannot drift apart.
   Because ray height at a target plane is exactly affine in a single lens's power, every
   solve is closed form rather than iterative.
 
+`column.js` holds the element table, the strength limits, and a `transfer()` that returns the
+paraxial matrix between any two planes. The self-test asserts it agrees with the page's own
+tracer element for element.
+
 ### Controls and actions
 
 The lens controls sit **on the figure**, one stack directly above each lens: a **number box** for the
-focal length in mm on top, and below it a vertical **slider logarithmic in focal length** --
-the number boxes are **staggered into two rows** (OL1 and OL2 are only 44 mm apart, far too close to
-put readable boxes side by side), while the sliders stay on one line so the row of thumbs reads as a
-power profile across the column -- about
-0.86% per step from 10000 mm down to the 2 mm limit, so a 91 mm and a 4 mm lens are equally easy to
-dial, with a dedicated **off** (1/f = 0) at the bottom of travel. Up is stronger. Sample defocus is
-the horizontal slider under the Sample label, and the alpha slider sits at the top of the Actions
-panel. The **Display** panel is cosmetic with one exception: theta_B sets the +/-1 Bragg spacing
-reported at the aperture. Nothing in it moves a plane. The VOA is fixed at 30 um radius.
-Under every element label is the **primary beam radius** at that plane, and the readout sits
-underneath the figure in four groups.
+focal length in mm on top, and below it a vertical **slider logarithmic in focal length**. The number
+boxes are **staggered into two rows**, since C2/C3 and PL2/PL3/PL4 are only 60 mm apart, too close for
+readable boxes side by side. The sliders stay on one line, so the row of thumbs reads as a power
+profile across the column. They run at about 0.8% per step from 10000 mm down to the strength limit,
+so a 105 mm and a 4 mm lens are equally easy to dial, with a dedicated **off** (1/f = 0) at the bottom of
+travel. Up is stronger. The objective's single stack, labelled **OL**, sits at the specimen between its
+two halves and runs down to 1.5 mm (it normally sits at 2 mm). Sample defocus is the horizontal slider under the Sample label, and
+the alpha slider sits at the top of the Actions panel. The **Display** panel is cosmetic with one
+exception: theta_B sets the +/-1 Bragg spacing reported at the aperture. Nothing in it moves a plane. The
+VOA is fixed at 30 um diameter. Under every element label is the **primary beam radius** at that plane, and
+the readout sits underneath the figure in four groups.
 
 The **checkbox at the foot of a lens stack pins that lens**: a solve may not move a pinned lens.
 **EL is pinned on a fresh load** -- holding the EELS lens while PL1-PL4 do the work is the common
-case -- and nothing else is. Only the seven lenses a solve can reach carry one -- C2 and C3, owned
-by the illumination solve, and PL1-PL4 plus EL, owned by the EELS solve. C1, OL1 and OL2 are set by
-hand only, so a pin there would mean nothing and they have none. A pinned lens is drawn with an
-accent border and a dimmed slider, so the pinned set reads at a glance.
+case -- and nothing else is. Only the eight lenses a solve can reach carry one: C1, C2 and C3, owned
+by the illumination solve, and PL1-PL4 plus EL, owned by the EELS solve. The objective is set by hand
+only, so a pin there would mean nothing and it has none. A pinned lens is drawn with an accent border
+and a dimmed slider, so the pinned set reads at a glance.
 
 The **copy** and **save** buttons at the top-right of the figure export it as a PNG at **2x** the
 on-screen resolution (about 2100 x 1200 from a 1050 px stage). The controls are HTML layered over
@@ -119,9 +145,9 @@ The action buttons:
 
 | button | solves | for |
 |---|---|---|
-| Focus probe on sample | C2 + C3 | crossover at the reference plane, at the chosen alpha (alpha = 15 gives C2 5, C3 55) |
-| Collimate probe on sample | C2 + C3 | axial slope zero there, at the chosen alpha (alpha = 1 gives C2 3.822, C3 49.831) |
-| Match EELS planes | three projector lenses at a time, four if needed -- or **two** with no target | either coupling regime, selected by the toggle above it |
+| Focus probe on sample | C2 + C3, and C1 when they cannot | crossover at the reference plane, at the chosen alpha (alpha = 15 gives C2 240/11, C3 36, C1 off) |
+| Collimate probe on sample | C2 + C3, and C1 when they cannot | axial slope zero there, at the chosen alpha (alpha = 0.3 gives C2 7.088, C3 47.493, C1 off) |
+| **Solve** | three projector lenses at a time, four if needed -- or **two** with no target | matches both EELS planes, in the coupling regime selected by the toggle above it |
 
 ### Reference plane vs specimen
 
@@ -132,40 +158,41 @@ The **specimen** sits at 785 + dz and only affects the Bragg cone origin, the be
 specimen, the probe-defocus readout, and the marker drawn on the figure.
 
 So nothing optical moves when you sweep `dz` -- verified, the EELS solve returns identical
-PL1/PL4/EL at dz = 0 and +/- 1 mm. What changes is that the probe is no longer focused *on the
-specimen*: the beam there grows as alpha * |dz|, 12 um at dz = 0.8 mm and alpha = 15 mrad.
+projector settings at dz = 0 and +/- 1 mm. What changes is that the probe is no longer focused *on
+the specimen*: the beam there grows as alpha * |dz|, 15 um at dz = 1 mm and alpha = 15 mrad.
 
-The `dz` knob spans +/- 1 mm, enough for a confocal depth series.
+The `dz` knob spans +/- 1 mm -- inside the 4 mm gap, and enough for a confocal depth series.
 
 ### Convergence angle
 
-One definition covers both illumination modes:
+> **alpha = the marginal ray's slope inside the objective gap.**
 
-> **alpha = |marginal ray height at OL2| / f_OL2** -- the slope OL2 imparts to the marginal ray.
+No lens sits between OL1 and OL2, so that slope is the same at the reference plane and on the
+specimen, and with the probe focused it is the ordinary convergence semi-angle -- the beam radius at
+OL1 over f_OL1, since the beam arrives there parallel. Under parallel illumination that slope is zero,
+so there alpha means the angle OL2 focuses the beam to instead, and the illuminated radius is exactly
+`r = alpha * f_OL2`; collimating at 0.3 mrad gives a 0.6 um spot.
 
-Focused, that is the ordinary convergence semi-angle. Parallel, it is the angle OL2 focuses the
-illumination to, and the illuminated radius is exactly `r = alpha * f_OL2`, so smaller alpha means a
-narrower beam. At the defaults it reads 15 mrad focused; collimating at 1 mrad gives an illuminated
-spot of alpha * f_OL2 = 22 um.
-
-The alpha slider is logarithmic over **0.05 - 39.5 mrad** and applies **live**, preserving whichever
+The alpha slider is logarithmic over **0.05 - 50 mrad** and applies **live**, preserving whichever
 mode you last chose with Focus or Collimate. **C2 and C3 set it**, solving both conditions at once
-(mode plus angle) in closed form -- the VOA stays fixed at 30 um.
+(mode plus angle) in closed form -- the VOA stays fixed. When they cannot, the solve **brings
+C1 in**: it scans C1 across its range, solves C2 + C3 exactly at every step, and keeps the setting
+whose strongest condenser lens is weakest. The banner says when it does. A C1 that is already on stays
+where it is whenever C2 + C3 can follow, so C1 only moves when it has to.
 
-The two modes do **not** have the same reach on this column, and the slider is sized to the focused
-one, which is what a dedicated STEM is for:
-
-| mode | reach at f >= 2 mm | what stops it |
+| mode | C2 + C3 alone (C1 off) | with C1 free |
 |---|---|---|
-| focused | **0.047 - 39.5 mrad** | `alpha = 1.364 * f_C3/f_C2` with f_C2 + f_C3 = 60, so the cap gives 1.364*(2/58) at one end and 1.364*(58/2) at the other |
-| parallel | **0.0024 - 1.97 mrad** | a 30 um aperture can only be opened out to a 43 um illuminated radius before C2 hits the 2 mm floor |
+| focused | **0.714 - 137.5 mrad** | from **0.043 mrad** upward, no ceiling found below 1000 mrad |
+| parallel | **0.0030 - 0.57 mrad** | from **0.00028 mrad** upward, to at least 100 mrad |
 
-So **every slider position solves with the probe focused**, and the slider's 0.05 and 39.5 sit just
-inside both ends of that range with no dead travel. Above about 1.97 mrad, Collimate refuses and the
-banner says why rather than returning something wrong. That asymmetry is the price of a 30 um
-aperture: shrinking the aperture is exactly how you reach small convergence angles on a real column,
-and it is equally what limits how far the illumination can be spread out. Relaxing the 2 mm cap to
-1 mm would move the two ranges to 0.024 - 80.1 and 0.0012 - 3.9 mrad.
+So **every slider position solves in both modes**, and the column's **39 mrad working point needs no
+C1** -- C2 11.65, C3 47.76. The edges of the C2 + C3 window are C2 or C3 reaching the 4 mm floor;
+outside it C1 comes on. Pin C1 and that second stage is off: outside the window the solve then refuses
+and says why.
+
+Every candidate is also **traced forward and checked** before it is accepted. The closed form is exact
+in principle, but a C1 crossover a few mm ahead of C2 chains several large magnifications together,
+and a matching slip of 1e-6 mm there once turned into a visibly wrong probe.
 
 The two coupling regimes each necessarily give up the other, so the readout names **which kind** of
 plane sits where -- a green tick for the kind the current regime wants, a circle for the other kind,
@@ -179,8 +206,8 @@ Planes are read off the post-sample transfer matrix [[A,B],[C,D]]: an **image pl
 B = 0, a **diffraction plane** is where A = 0. Neither depends on the condenser, so both are correct
 in TEM and STEM alike. The **illumination crossovers** in the readout are a different thing --
 images of the *source*. With a focused probe they coincide with the sample images; under parallel
-illumination they land on the **diffraction** planes instead (829, 1181.76 and 1550 rather than
-976.68, 1204.28 and 1595), which is why they must not be used to classify planes.
+illumination they land on the **diffraction** planes instead (789, 1014.53, 1141.58 and 1550
+rather than 966.08, 1047.25, 1166.25 and 1595), which is why they must not be used to classify planes.
 
 **Where A and B come from.** Write the ray-transfer matrix from the *reference plane* to whichever
 plane you care about as `[[A, B], [C, D]]`. A ray leaving the reference plane with height `y` and
@@ -190,14 +217,15 @@ slope `theta` arrives at height `A*y + B*theta`. At a **diffraction plane** `A =
 **magnification**.
 
 Camera length defined this way is the same number as the textbook `L = f_OL2 * M` -- OL2's back focal
-plane at z = 829 is conjugate to the aperture with M = -1.2818, so 22 * 1.2818 = 28.2 mm. That is not
-a coincidence of the defaults: `A(BFP) = 0` for **any** f_OL2, so writing the BFP -> aperture transfer
-as [[a,b],[c,d]] gives `A(aperture) = -b/f_OL2` and `B(aperture) = a*f_OL2 + b*(1 - d1/f_OL2)`. The
-diffraction-coupled condition is exactly `b = 0`, which collapses the second to `f_OL2 * a`. So
+plane at z = 789 is conjugate to the aperture with M = -14.1, so 2 * 14.1 = 28.2 mm. That is not a
+coincidence of the defaults: `A(BFP) = 0` for **any** f_OL2 and any specimen-to-OL2 distance, so
+writing the BFP -> aperture transfer as [[a,b],[c,d]] gives `A(aperture) = -b/f_OL2`, and the
+diffraction-coupled condition is exactly `b = 0`, which collapses `B(aperture)` to `f_OL2 * a`. So
 **`camera length` and `f_OL2 * (magnification of the projector system from OL2's back focal plane)`
-are the same quantity**, always, whenever the aperture really is a diffraction plane -- including when
-OL2 is detuned away from its default. It is meaningful in STEM as well as TEM: it is what decides
-which scattering angles get inside the aperture.
+are the same quantity**, always, whenever the aperture really is a diffraction plane. It is meaningful
+in STEM as well as TEM: it is what decides which scattering angles get inside the aperture. It is also
+why long camera lengths are the hard end of the EELS reach on this column: with f_OL2 = 2 mm, every
+millimetre of camera length has to be bought as projector magnification.
 
 One consequence worth stating on its own, because it is easy to mistake for a geometry statement: with
 a focused probe the beam radius printed at the aperture is **exactly `L * alpha`**. It therefore says
@@ -215,10 +243,18 @@ They are exact mirrors, and mutually exclusive:
 | follows | Mag = 45/L at the focal plane | L = 45/M at the focal plane |
 
 Because both conditions live entirely in the post-sample matrix, **matching works identically under
-focused and parallel illumination** -- verified, the same PL1 66.68 / PL4 41.33 / EL 91.37 either way.
-Verified image-coupled solutions (PL1 / PL4 / EL in mm): M=0.1 -> 60.08 / 6.16 / 98.38 ·
-M=1 -> 49.35 / 45.43 / 82.48 · M=5 -> 503.54 / 53.83 / 87.42 · M=10 -> 243.95 / 30.69 / 99.12 ·
-M=20 -> 231.09 / 17.15 / 104.43 · M=100 -> 236.48 / 3.87 / 108.92.
+focused and parallel illumination** -- verified, the same PL1 56.08 / PL2 13.58 / PL4 14.03 / EL 105
+either way. Verified image-coupled solutions from the shipped column with EL free (mm):
+
+| M | lenses used | PL1 | PL2 | PL4 | EL |
+|---:|---|---:|---:|---:|---:|
+| 1 | PL2 + PL4 + EL | 56.08 | 13.47 | 11.44 | 96.68 |
+| 5 | PL1 + PL4 + EL | 55.22 | 13.58 | 34.51 | 85.07 |
+| 10 | PL1 + PL4 + EL | 54.31 | 13.58 | 127.56 | 157.06 |
+| 20 | PL1 + PL4 + EL | 43.30 | 13.58 | 59.12 | 47.38 |
+| 50 | PL1 + PL2 + EL | 24.98 | 50.82 | 14.03 | 110.33 |
+| 100 | PL1 + PL2 + EL | 51.89 | 42.26 | 14.03 | 105.40 |
+| 200 | PL1 + PL2 + EL | 73.69 | 32.73 | 14.03 | 104.96 |
 
 ### How the solve works
 
@@ -227,8 +263,7 @@ quantity (camera length, or magnification). The solver tries **every triple of p
 drawn from PL1, PL2, PL3, PL4 and EL, in stages:
 
 0. if the column **already meets** the target, say so and change nothing
-1. only lenses that are **already excited** -- so a target that does not need PL2/PL3 never
-   disturbs them
+1. only lenses that are **already excited** -- so a target that does not need PL3 never disturbs it
 2. if nothing works, **switch an off lens on** as a last resort, and say so in the banner
 3. still nothing: solve **four at once** (see below)
 
@@ -243,9 +278,9 @@ up front and names what is pinned rather than grinding through a search that can
 one flag, two views -- kept because holding the EELS lens is the common case; combined with the
 coupling toggle it gives all four cases.
 
-The illumination solve has no slack to give: it sets the mode *and* the convergence angle with
-exactly C2 and C3, two conditions against two unknowns, so pinning either one stops it outright
-with a message saying so.
+The illumination solve has no slack in C2 and C3: it sets the mode *and* the convergence angle with
+exactly those two, so pinning either one stops it outright with a message saying so. Pinning C1
+only stops it from bringing C1 in.
 
 ### Solving without a target
 
@@ -259,28 +294,30 @@ wins -- and whatever camera length falls out is **written back to the slider**, 
 into a readout. Turning the checkbox back on then aims at what was just found.
 
 Whether a given pair has a solution depends on where the lenses you did *not* free are sitting. From
-the shipped column all six PL pairs solve, with EL held:
+the shipped column, with EL held, the other two projectors held at their defaults, and the first lens
+of the pair knocked to 40 mm to start:
 
 | free pair | L (mm) | the two focal lengths |
 |---|---:|---|
-| PL1 + PL4 | **28.20** | 66.679 / 41.333 -- the shipped column itself |
-| PL1 + PL4 (other root) | 3.95 | 175.998 / 29.370 |
-| PL1 + PL2 | 24.04 | 71.351 / 555.272 |
-| PL3 + PL4 | 12.83 | 26.965 / 16.935 |
-| PL2 + PL3 | 10.17 | 20.747 / 33.805 |
-| PL1 + PL3 | 8.67 | 118.208 / 135.892 |
-| PL2 + PL4 | 4.63 | 31.713 / 23.595 |
+| PL1 + PL4 | **28.20** | 56.083 / 14.031 -- the shipped column itself |
+| PL2 + PL4 | **28.20** | 13.584 / 14.031 -- likewise |
+| PL2 + PL3 | 5.26 | 24.990 / 34.096 |
+| PL1 + PL2 | 3.66 | 140.838 / 100.165 |
+| PL1 + PL3 | 0.68 | 100.431 / 24.536 |
+| PL3 + PL4 | none | -- |
 
-With every other projector switched off instead, **none** of the pairs solve -- so two is the degree
-of freedom count, not a guarantee. The four-lens stage does not run without a target: it exists to
-extend *reach* toward a value you named, and there is no value to reach.
+With the other two projectors switched off instead, a different three solve -- PL1 + PL4
+(L = 8.39 mm), PL2 + PL4 (2.35 mm) and PL3 + PL4 (1.25 mm) -- so two is the degree-of-freedom count,
+not a guarantee. The four-lens stage does
+not run without a target: it exists to extend *reach* toward a value you named, and there is no value
+to reach.
 
 ### Why three lenses, not four
 
 There are exactly three conditions -- the plane condition at the aperture, the plane condition at
 the focal plane, and the free quantity (L or M). Three conditions need three unknowns for a locally
 unique solution. A fourth lens does **not** over-determine the system; it *under*-determines it into
-a one-parameter family.
+a one-parameter family. The shipped projector setting is itself a member of such a family.
 
 So "three at a time" does not mean only three lenses are ever used. The solver tries every 3-subset
 of the excited projector lenses -- there are five, PL1-PL4 plus EL -- and picks the gentlest, so all
@@ -288,60 +325,58 @@ five participate across candidates. What it avoids is varying four *simultaneous
 unique answer.
 
 That family is still worth having when no triple works, so there is a final stage: scan one lens of
-a quad across its range and solve the other three exactly at each step. Measured, it reaches targets
-no triple can and leaves EL alone while doing it:
+a quad across its range and solve the other three exactly at each step. Measured from the shipped
+column with EL free, it reaches targets no triple can:
 
 | target | 3 lenses | 4 lenses |
 |---|---|---|
-| image M = 200 / 800 / 1200 | none | solved |
-| diffraction L = 2000 / 8000 / 30000 | none | solved |
+| image M = 5000 / 10000 / 20000 | none | solved, EL untouched |
+| diffraction L = 200 / 400 / 600 | none | solved, EL untouched |
+| diffraction L = 0.002 - 0.007, image M = 0.07 - 0.2 | none | solved, moving EL |
 
-The four-lens stage leaves EL alone up to about L = 8000 / M = 2000; past that the all-projector
-quads run out and the solver has to bring EL in as well.
-
-It only runs after every triple has failed. Tuned by measurement at 20 outer steps x 1500 inner.
-On this column a genuine refusal -- every triple *and* every four-lens family searched -- costs about
-**0.13 s with EL held** (the default, one quad) and **0.56 s with EL free** (five quads).
+It only runs after every triple has failed. Tuned by measurement at 20 outer steps x 1500 inner: a
+richer 25 x 3000 reaches exactly the same targets at about twice the cost. On this column a genuine
+refusal -- every triple *and* every four-lens family searched -- costs about **0.3 - 0.4 s with EL
+held** (the default, one quad) and **1.6 - 2.4 s with EL free** (five quads).
 
 Each triple is tried in **both role orders** -- scanning the downstream lens versus the middle one
 gives a different residual with different poles. That swap, not scan density, is what finds the
 awkward roots: re-measured on this geometry, a 10x finer root scan recovers nothing the coarse pass
-misses (identical reachable sets over M = 0.01..400 and L = 1000..8000) while pushing an exhaustive
-three-lens miss from 0.12 s to 0.83 s.
+misses (L = 800, M = 0.05 and M = 40000 all still miss) while pushing an exhaustive miss from about
+1.8 s to 4 - 5 s.
 
 The solve is structured rather than iterative -- alternating three one-dimensional solves does *not*
 converge. Both EELS-plane conditions fix the entire ray state at the aperture in closed form,
 for diffraction coupling `imgRay = (s*L, -s*L/D)` and `diffRay = (0, -s/L)`, and for image coupling
-the mirror `imgRay = (0, s/M)` and `diffRay = (s*M, -s*M/D)`; propagating that back to PL1 and matching the
-forward state there makes PL4 an exact affine solve for each trial EL power, leaving one 1-D root
-find. Both image parities `s` are searched, which is what makes long camera lengths reachable.
-Verified solutions on the default column (PL1 / PL4 / EL in mm):
+the mirror `imgRay = (0, s/M)` and `diffRay = (s*M, -s*M/D)`; propagating that back to the most
+upstream free lens and matching the forward state there makes the middle lens an exact affine solve
+for each trial power of the downstream one, leaving one 1-D root find. Both image parities `s` are
+searched, which is what makes long camera lengths reachable. Verified solutions from the shipped
+column with EL free (mm):
 
-| L | 1 | 5 | 10 | 20 | 28.2 | 80 | 150 | 400 |
-|---|---|---|---|---|---|---|---|---|
-| PL1 | 226.70 | 159.26 | 107.16 | 74.18 | **66.68** | 60.22 | 60.00 | 60.24 |
-| PL4 | 9.88 | 33.80 | 44.43 | 45.24 | **41.33** | 22.87 | 13.81 | 5.67 |
-| EL | 97.40 | 89.84 | 86.31 | 88.19 | **91.37** | 101.67 | 105.42 | 108.31 |
-| Mag | 45x | 9x | 4.5x | 2.25x | **1.5957x** | 0.5625x | 0.3x | 0.1125x |
+| L | 1 | 5 | 10 | 20 | 28.2 | 50 | 80 |
+|---|---|---|---|---|---|---|---|
+| lenses used | PL1+PL2+EL | PL1+PL4+EL | PL1+PL4+EL | PL1+PL4+EL | **shipped** | PL1+PL2+EL | PL1+PL2+EL |
+| PL1 | 35.78 | 56.90 | 56.21 | 56.09 | **56.08** | 57.81 | 58.70 |
+| PL2 | 44.97 | 13.58 | 13.58 | 13.58 | **13.58** | 8.58 | 5.69 |
+| PL4 | 14.03 | 39.87 | 28.67 | 18.24 | **14.03** | 14.03 | 14.03 |
+| EL | 98.67 | 86.97 | 96.88 | 103.04 | **105** | 105.06 | 105.08 |
+| Mag | 45x | 9x | 4.5x | 2.25x | **1.5957x** | 0.9x | 0.5625x |
 
 ### What bounds the reach
 
-Not the spacing between the projector lenses -- the **lens strength limit**. Measured by sweeping the
-cap and probing both regimes with the shipped solver (three-lens stage plus the four-lens fallback):
+Not the spacing between the projector lenses -- the **lens strength limit**, and behind it the strong
+objective. Measured with the shipped solver from the shipped column, every stage included:
 
-| strength limit | image-coupled M | diffraction-coupled L | focused alpha |
-|---|---|---|---|
-| f >= 10 mm | 0.05 - 100 | 0.5 - 1000 mm | 0.27 - 6.7 mrad |
-| f >= 5 mm | 0.01 - 800 | 0.05 - 2000 mm | 0.13 - 14.9 mrad |
-| **f >= 2 mm** (shipped) | **0.002 - 4000** | **0.01 - 30000 mm** | **0.047 - 39.5 mrad** |
-| f >= 1 mm | 0.002 - 8000 | 0.01 - 60000 mm | 0.024 - 80.1 mrad |
+| | three lenses | all stages |
+|---|---|---|
+| diffraction-coupled L, EL free | 0.02 - 100 mm | **0.002 - 700 mm** |
+| diffraction-coupled L, EL held (default) | 2 - 100 mm | **0.05 - 600 mm** |
+| image-coupled M, EL free | 0.5 - 3000 | **0.06 - 20000** |
+| image-coupled M, EL held (default) | 20 - 3000 | **2 - 10000** |
 
-Only the innermost part of the EELS range is reachable with three lenses -- at the shipped cap,
-**M 0.02-100 and L 0.5-1000 mm**; everything past that needs the four-lens stage, which is why it
-exists. 2 mm is stiff but physically defensible, since real magnetic objectives run 1.5-3 mm. On this
-column the cap binds on the *condenser* side too, and rather harder: C2 sets both ends of the alpha
-slider, and it is the 2 mm floor that makes the 39 mrad working point need a 44 mm objective gap.
-Past the ceiling the solver refuses and says so rather than hunting.
+Past those ends the solver refuses and says so rather than hunting. The ends are sampled, so read them
+as "about".
 
 ### Radial exaggeration
 
@@ -393,8 +428,14 @@ camera length is `measured / 0.016` mm.
 
 Ideal thin lenses only -- no spherical or chromatic aberration, no space charge, no lens
 bore limits, no relativistic or magnetic rotation effects. Positive focal lengths only, and no
-lens may be stronger than f = 2 mm.
-Element positions are fixed (edit `COLUMN` at the top of the script to change them).
+round lens may be stronger than f = 4 mm (the objective, f = 1.5 mm).
+
+Two parts of the real column are represented only by what they do to a round beam, as the published
+descriptions of the Nion column give them. The **aberration corrector** and the quadrupole module that
+couples it into the objective sit between C3 and OL1; they are not modelled, so C3 to OL1 is a plain
+drift -- a parallel beam stays parallel and keeps its width. And **EL** stands in, as a round lens, for
+the quadrupole-octupole coupling module that sets the EELS entrance crossover and camera length.
+Element positions are fixed (edit `COLUMN` in `column.js` to change them).
 
 ## Licence
 
