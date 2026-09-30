@@ -187,12 +187,6 @@ details.panel[open] > summary{margin-bottom:10px}
     <div id="panbar" class="off" title="Scroll the zoomed view along the column"><div id="panthumb"></div></div>
     <div class="note" id="legend"></div>
 
-    <div class="panel readpanel">
-      <h2>Readout</h2>
-      <div id="readout"></div>
-      <div id="warn"></div>
-    </div>
-
     <div class="panel" id="wavepanel">
       <h2>Wave images <span class="phys">electron as a wave, through the real lens fields</span></h2>
       <div class="imgs">
@@ -219,11 +213,18 @@ details.panel[open] > summary{margin-bottom:10px}
       </div>
       <div class="hint" id="wmore" style="margin-top:8px"></div>
     </div>
+
+    <div class="panel readpanel">
+      <h2>Readout</h2>
+      <div id="readout"></div>
+      <div id="warn"></div>
+    </div>
   </div>
 
   <div>
     <div class="panel">
-      <h2>Actions</h2>
+      <h2>Beam</h2>
+      <div class="row on"><label>HT</label><select id="kv" style="width:92px" title="Accelerating voltage: sets the electron wavelength of the wave images (the ray paths at a given lens strength do not depend on it)"><option value="30">30 kV</option><option value="80" selected>80 kV</option><option value="200">200 kV</option></select><span></span></div>
       <div id="alpharow"></div>
       <button id="bFocus">Focus probe on sample <span class="sub">solves C2 + C3, and C1 if they cannot</span></button>
       <button id="bColl">Collimate probe on sample <span class="sub">solves C2 + C3 (+ C1) &middot; parallel illumination</span></button>
@@ -237,15 +238,6 @@ details.panel[open] > summary{margin-bottom:10px}
       <button id="bEels">Solve <span class="sub" id="eelsSub"></span></button>
       <hr>
       <button id="bReset">Restore defaults</button>
-    </div>
-
-    <div class="panel">
-      <h2>Beam</h2>
-      <div class="row w"><label>HT</label>
-        <select id="kv"><option value="30">30 kV</option><option value="80" selected>80 kV</option>
-                        <option value="200">200 kV</option></select></div>
-      <div class="hint">Sets the electron wavelength for the wave images. The trajectories above are set by the
-        lens strengths you dial, so they do not depend on it.</div>
     </div>
 
     <details class="panel" id="wavectl">
