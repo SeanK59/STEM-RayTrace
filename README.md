@@ -441,69 +441,39 @@ Worked example: Si {111}, d = 3.1355 A, at 200 kV (lambda = 2.5079 pm) deflects 
 `2 * 28.2 * 0.008 = 0.451 mm` between the +g and -g spots. Measure something else, and the real
 camera length is `measured / 0.016` mm.
 
-## Wave-optics view
+## Electron optics (`electron-optics.html`)
 
-`wave.html` is the same column -- the same `column.js`, the same thin lenses, the same lens settings --
-with electron-wave mechanics added and nothing else. Open it from the ray page's **wave-optics view**
-link and it starts from that page's lenses (they travel in the URL hash); leave both open and it
-follows every change live over a `BroadcastChannel`. The ray page stays the control panel. The wave
-page adds only what a ray cannot carry: the accelerating voltage (30 / 80 / 200 kV), the probe's
-residual aberrations, and a specimen.
+A second page, same interface, different physics. Every round lens is a magnetic field of finite width
+(a Glaser bell field), and the rays are the exact paraxial trajectories through those fields, so they
+curve inside each lens instead of kinking at a thin-lens plane. Zoomed in on the objective you can watch the
+beam bend through the gap. Nothing is integrated numerically: the ray matrix between any two planes has a
+closed form (`fieldlens.js`), and the same matrices drive the wave images.
 
-It draws two planes:
+What it adds over the thin-lens page:
 
-* **the specimen** -- the probe intensity, or the specimen's phase
-* **any plane downstream** -- the EELS aperture (default), the EELS focal plane, or any z
+* **Thick lenses.** Principal planes are not at the lens centre, and at the strongest round-lens setting
+  they are crossed by about 2.9 mm each. The solvers re-solve the column on the exact fields: at the shipped
+  defaults the projector lenses differ by 1-3 % from the thin-lens page, the first image and the first
+  diffraction plane move by up to ~10 mm and ~2 mm, and the camera length and the EELS planes stay at their
+  targets (15 mrad focused, 28.2 mm).
+* **The specimen sits inside the objective field**, at a reference plane z = 784.994 mm, where the strongest
+  objective focuses a parallel beam, about 6 um above the field centre.
+* **Larmor rotation** of images and diffraction patterns (all lenses taken with the same polarity).
+* **HT** 30 / 80 / 200 kV (default 80), which sets the wavelength of the wave images. Paraxial trajectories at
+  a fixed focal length do not depend on it.
+* **Wave images** of the probe at the specimen and the pattern at the EELS planes (or any plane), from the
+  exact matrices with Krivanek aberrations (Nion-corrector residuals of ~2 / 20 / 200 nm are one click away),
+  thin phase specimens and a Collins integral, rotated by the Larmor angle.
+* **Illumination reach**: focused 0.041 mrad and up with C1 free (2.04-138 mrad from C2 + C3 alone),
+  parallel 0.003-0.57 mrad from C2 + C3 alone and the whole slider with C1.
 
-**The probe** is the converging wave the ray model describes, a sharp cone of half-angle alpha, with
-the aberration phase in Krivanek notation up to third order:
-`chi = (2 pi / lambda) * sum theta^(n+1)/(n+1) * [C_nm,a cos(m phi) + C_nm,b sin(m phi)]` for
-C10, C12, C21, C23, C30, C32, C34, in nm. The **Nion residuals** button loads 2 nm at first order,
-20 nm at second and 200 nm at third. The ray page's probe defocus -- how far the specimen sits past the
-crossover -- is added to C10, so moving the specimen on the ray page defocuses the probe here. Under
-parallel illumination the incident wave is a plane wave.
+Lens widths are fixed defaults set so each lens reaches exactly its strongest allowed focal length (4 mm, 2 mm for the
+objective); they are not measured. Lens currents are not modelled. `electron-help.html` has the details.
 
-**Propagation** uses the column's own transfer matrix from the specimen, through the Collins
-integral, which is the wave-optical form of the ABCD matrix the ray page draws with. It is evaluated
-two ways, each exact where it samples well, split at `|B/A| = z* = N dx^2 / lambda`:
-
-* near a diffraction plane: a pre-chirp and one FFT (at A = 0, a pure scaled Fourier transform)
-* near an image plane: an angular-spectrum propagation over B/A, then a magnification A
-
-At the EELS aperture in diffraction coupling that gives CBED discs of radius L*alpha at spacing
-L*lambda/d, exactly where the ray page puts the beam edge and its Bragg discs (the optional dashed
-overlay). The EELS limiting aperture is ignored: every electron reaches every plane.
-
-**The window** is chosen per render so the pixel resolves every angle present -- the probe cone plus
-two Bragg orders, times an oversample factor -- and is then N pixels of that, nudged to a whole number
-of lattice periods. A probe defocused past what the window holds is flagged and not drawn; at 20 mrad
-and 512 pixels that is about 250 nm of defocus, far less than the ray page's +/- 1 mm `dz`.
-Use C10 for fine defocus, or raise the grid. A 512 x 512 render takes about 70 - 90 ms, and
-1024 x 1024 about 0.4 s.
-
-**Specimens** are thin phase objects:
-
-* a square lattice, `t = exp(i sigma [cos(2 pi x/d) + cos(2 pi y/d)])`, whose orders sit at
-  +/- lambda/d along x and y (Si {111}, d = 3.1355 A, is the default)
-* amorphous carbon, as a Gaussian-correlated random phase screen
-* vacuum
-
-There is no multislice, absorption, inelastic scattering, partial coherence or chromatic spread.
-
-`wave.html?selftest` checks the machinery against closed-form results:
-
-* the FFT (Parseval, and a round trip to 4e-16)
-* the aberration-free probe's FWHM against the Airy value 0.5145 lambda/alpha (within 0.1%)
-* a Gaussian beam propagated to five planes, spanning both evaluations, against its analytic width
-  (agreement to better than 1e-6)
-* the CBED disc radius against L*alpha, and the +/-1 spacing against 2 L lambda/d (each within one
-  pixel)
-* the 1.10 mm direct-beam radius at 39 mrad
-* the out-of-window flag
-* the hand-off decoding
-
-The ray page's own self-test asserts that `column.js`'s `illumination()` and `transfer()` agree with
-its tracer in every regime, so the two pages share one geometry by construction.
+`electron-optics.html?selftest` checks the field maths against independent scipy integration (matrices to 1e-11),
+the calibrated widths and the reference plane, the equivalence of the effective thin-lens column and the exact
+fields, every solver and its refusals, the zoom, and the wave images (Airy width, Gaussian-beam propagation, CBED
+disc radius and spacing).
 
 ## Limits
 

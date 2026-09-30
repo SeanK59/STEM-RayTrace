@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEM Column Electron Optics &mdash; Help</title>
+<style>
+:root{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);
+     font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{padding:14px 20px 12px;border-bottom:1px solid var(--line)}
+.home-link{font-size:.9rem;margin-bottom:.55rem}
+a{color:var(--accent)}
+.home-link a{text-decoration:none}
+.home-link a:hover{text-decoration:underline}
+h1{margin:0;font-size:19px;font-weight:600;color:var(--accent);letter-spacing:.2px}
+header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
+main{max-width:820px;margin:0 auto;padding:8px 20px 40px}
+h2{margin:28px 0 6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;
+   text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
+h2:first-child{border-top:0;margin-top:16px}
+p{margin:0 0 12px;color:#cfcfcf;font-size:13.5px}
+p b{color:var(--fg)}
+code{background:#1c1c1c;padding:1px 4px;border-radius:3px;font-size:12.5px}
+footer{max-width:820px;margin:0 auto;padding:12px 20px 28px;border-top:1px solid var(--line);
+       color:var(--dim);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="home-link"><a href="https://seankung.ca/">&larr; seankung.ca</a> &nbsp;&middot;&nbsp;
+    <a href="electron-optics.html">&larr; back to the electron optics</a> &nbsp;&middot;&nbsp;
+    <a href="help.html">thin-lens ray trace help</a></nav>
+  <h1>STEM Column Electron Optics &mdash; Help</h1>
+  <div class="sub">What is different from the thin-lens ray trace, how the field model works, and what it leaves out</div>
+</header>
+
+<main>
+<h2>What this page is</h2>
+
+<p>The interface is the thin-lens ray trace's, and the solvers (illumination, EELS planes, pins, no-target mode) behave
+  the same way. What changes is the physics underneath: every round lens is a <b>magnetic field of finite width</b>, and
+  the rays are the exact paraxial trajectories through those fields, so they <b>curve inside each lens</b>. Zoom in on the
+  objective to see the beam bend through the gap. For the controls themselves, zoom, pins and the two EELS coupling modes,
+  see the <a href="help.html">thin-lens help</a>; everything there applies here unless it is listed below.</p>
+
+<h2>The lens model</h2>
+
+<p>Each lens is a <b>Glaser bell field</b>, B(z)&nbsp;=&nbsp;B<sub>0</sub>/(1&nbsp;+&nbsp;((z&minus;z<sub>c</sub>)/a)<sup>2</sup>),
+  the standard closed-form model of a round magnetic lens. The paraxial equation in the frame that rotates with the
+  electron has an exact solution for it, so the ray matrix between <i>any</i> two planes, inside a field or across it, is
+  closed-form; nothing is integrated numerically. The glyph drawn for each lens is its own field profile B(z).
+  Lens strength is still quoted as a <b>focal length</b>, and the excitation behind it is found by inverting that focal
+  length exactly. No lens currents are modelled yet.</p>
+
+<p><b>Widths are fixed defaults, not measured.</b> They are set so that each lens reaches exactly its strongest allowed
+  setting: <b>4&nbsp;mm</b> for every round lens (a&nbsp;&asymp;&nbsp;2.74&ndash;2.75&nbsp;mm) and <b>2&nbsp;mm</b> for the
+  objective, which has a&nbsp;=&nbsp;2.013&nbsp;mm and a field width of about 4.03&nbsp;mm, the pole-piece gap. Round lenses
+  quote the projective focal length; the objective quotes the focal length of one half of its field, the published
+  pre-field&nbsp;=&nbsp;post-field value. OL1 and OL2 are the two halves of <b>one lens</b>, driven together. The true
+  pole-piece shapes are not known here, so treat the field shapes as a reasonable stand-in rather than the real thing.</p>
+
+<h2>What really differs from thin lenses</h2>
+
+<p><b>Thick-lens planes.</b> A strong field lens acts at principal planes that are not at its centre. At the strongest
+  round-lens setting they are <i>crossed</i>, each about 2.9&nbsp;mm past the other's side, so a column solved with thin
+  lenses puts its crossovers and conjugate planes in slightly wrong places: the page re-solves everything on the exact
+  fields, and the difference is typically one to a few per cent in the projector lenses.</p>
+
+<p><b>The specimen sits inside the objective field.</b> The <b>reference plane</b> is z&nbsp;=&nbsp;784.994&nbsp;mm, where the
+  strongest objective focuses a parallel beam, about 6&nbsp;&micro;m above the centre of its field. That is how the real column
+  is run (Dellby et al., 2011: the crossover is &ldquo;a few &micro;m above the center of the objective&rdquo;). Conjugate
+  planes, camera length and magnification are referenced to it, and moving the specimen by <code>dz</code> moves the exact
+  in-field matrices with it, unlike the thin-lens page.</p>
+
+<p><b>Larmor rotation.</b> Electrons spiral in a magnetic field, so an image or a diffraction pattern is rotated relative to the
+  specimen. The readout shows the rotation from specimen to the EELS aperture, and the wave images below are rotated by it.
+  The polarity of each lens is unknown, so all lenses are taken with the <b>same polarity</b>; the absolute angle is therefore
+  indicative, and what is reliable is that it depends on the lens settings.</p>
+
+<p><b>What does not change.</b> At a fixed focal length, paraxial trajectories do not depend on the accelerating voltage. HT sets the
+  wavelength (&lambda; = 4.176&nbsp;pm at 80&nbsp;kV, the default; 30 and 200&nbsp;kV are selectable) and so the wave images, and
+  will matter for the focal-length-to-current calibration once currents are modelled. Third-order geometric aberrations
+  of the lenses are not computed.</p>
+
+<h2>Compared with the thin-lens page</h2>
+
+<p>Both pages are solved to the same two targets: 15&nbsp;mrad focused on the specimen and a 28.2&nbsp;mm camera length
+  with the EELS aperture on a diffraction plane and the EELS focal plane on an image. So those numbers agree. What the
+  fields change is how the column gets there:</p>
+
+<p><b>Lens strengths</b> (focal length, mm, thin &rarr; field): C2 21.82&nbsp;&rarr;&nbsp;21.92, C3 36.00&nbsp;&rarr;&nbsp;36.15,
+  PL1 56.08&nbsp;&rarr;&nbsp;57.14 (+1.9%), PL2 13.58&nbsp;&rarr;&nbsp;13.15 (&minus;3.2%), PL4 14.03&nbsp;&rarr;&nbsp;14.31
+  (+2.0%), EL pinned at 105. <b>Sample images</b> (mm): 966 / 1047 / 1166 / 1595 &rarr; 955.6 / 1045.7 / 1166.3 / 1595.
+  <b>Diffraction planes</b>: 789 / 1015 / 1142 / 1550 &rarr; 787.0 / 1015.4 / 1141.8 / 1550. The big shifts are in the
+  first image and first diffraction plane, nearest the objective, where the thick field matters most.
+  <b>Larmor rotation</b> from specimen to EELS aperture is about 331&deg; with all lenses the same polarity, and
+  zero on the thin-lens page.</p>
+
+<h2>Illumination</h2>
+
+<p>The &alpha; slider spans <b>0.05&ndash;50&nbsp;mrad</b> and sets the convergence semi-angle exactly as on the thin-lens page:
+  &alpha; is the slope of the marginal ray at the reference plane, and under parallel illumination it is the angle the objective
+  focuses the beam to. From the bare point source, C2&nbsp;+&nbsp;C3 alone reach <b>2.04&ndash;138&nbsp;mrad</b> focused and
+  0.0030&ndash;0.57&nbsp;mrad parallel. Outside that the solve brings C1 in and says so. With C1 free the focused floor is
+  <b>0.041&nbsp;mrad</b>: the low-angle end (below about 0.7&nbsp;mrad) needs C2 almost at its strongest with C1 near
+  59&nbsp;mm and C3 doing the work, a narrow family of exact solutions that the page follows. Parallel illumination reaches the
+  whole slider range. The 15&nbsp;mrad default needs no C1.</p>
+
+<h2>Wave images</h2>
+
+<p>The two images under the column are computed, not drawn: a <b>probe at the specimen</b> (or the specimen phase), and the
+  pattern at a chosen plane downstream, by propagating the wave through the exact ray matrices (a Collins integral, done as a
+  Fresnel transform near image planes and a Fourier transform near diffraction planes), then rotating by the Larmor angle. The
+  <b>Wave images</b> panel sets the aberrations (Krivanek notation; <b>Nion residuals</b> loads about 2&nbsp;nm first order,
+  20&nbsp;nm second and 200&nbsp;nm third, and higher orders are ignored), the specimen (crystal lattice, amorphous carbon or
+  vacuum), the grid and the display. The overlay marks the beam edge and Bragg positions from the ray trace as a check: the
+  direct disc at the aperture has radius L&thinsp;&alpha;, and the &plusmn;1 discs sit 2&thinsp;L&thinsp;&lambda;/d apart. Specimens are
+  thin phase objects: no thickness, no inelastic scattering, no EELS spectrum or detector model.</p>
+
+<h2>What the model leaves out</h2>
+
+<p>Paraxial rays only; no spherical or chromatic aberration of the lenses (the probe aberrations above are a separate input),
+  no space charge, no lens bore limits. Positive focal lengths only, none stronger than 4&nbsp;mm (2&nbsp;mm for the
+  objective). Element positions are fixed. The aberration corrector and the quadrupole module are not modelled &mdash; C3 to the
+  objective is a plain drift &mdash; and EL stands in for the coupling module before the spectrometer. Lens fields are
+  truncated at the midpoint between neighbours, which changes a lens's focal length by under about 1% and is absorbed into its
+  definition.</p>
+</main>
+
+<footer>
+  Sean Kung &middot; <a href="mailto:sean.kung@ubc.ca">sean.kung@ubc.ca</a> &middot;
+  Lens model: Glaser bell field; see Dellby et al. 2011 and Krivanek et al. 2008 for the column and the aberration convention
+</footer>
+
+</body>
+</html>
