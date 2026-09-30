@@ -2558,6 +2558,12 @@ function renderWave() {
   const o = r.out;
   const g2 = WV.paint(el$('wv2'), o.I, N, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot });
   WV.scaleBar(g2, N, o.du);
+  if (r.outOfWindow) {                      // the specimen wave did not fit the grid, so this plane is aliased, not physics
+    g2.fillStyle = 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, N, N);
+    g2.fillStyle = '#ef9a9a'; g2.font = (15 * N / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
+    g2.fillText('not reliable: probe larger than', N / 2, N / 2 - 10 * N / 512);
+    g2.fillText('the specimen window (see left)', N / 2, N / 2 + 14 * N / 512);
+  }
   const L = Math.abs(r.M.B);
   const theta = p.spec.type === 'lattice' ? p.lambda / (p.spec.dA / 10) : NaN;
   // the ray trace's marginal ray leaves the probe crossover at slope alpha: it meets the specimen at dz_past * alpha
