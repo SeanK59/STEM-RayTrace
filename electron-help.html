@@ -121,6 +121,19 @@ footer{max-width:820px;margin:0 auto;padding:12px 20px 28px;border-top:1px solid
   direct disc at the aperture has radius L&thinsp;&alpha;, and the &plusmn;1 discs sit 2&thinsp;L&thinsp;&lambda;/d apart. Specimens are
   thin phase objects: no thickness, no inelastic scattering, no EELS spectrum or detector model.</p>
 
+<p><b>Specimen off the crossover (dz &ne; 0).</b> A probe focused on the reference plane is a disc of radius
+  dz&thinsp;&alpha; on a specimen dz away, so computing the wave on the specimen would need a grid that grows with dz
+  (hundreds of thousands of pixels at 50&nbsp;&micro;m). The page never does that. A thin periodic specimen is a sum of
+  Bragg beams, and through any ray-transfer system a beam g only <i>shifts</i> the output by &lambda;B<sub>s</sub>g and adds
+  a known phase, so the pattern is a handful of copies of the focused probe's own output, displaced and added with their
+  exact relative phases. It agrees with the direct calculation to 0.1% where that is still valid. What you see follows
+  directly: at a <b>diffraction-like plane</b> the copies are discs (radius L&alpha;) that overlap and interfere, with
+  fringes finer than a pixel averaged out; at an <b>image-like plane</b> they are <b>spots</b> &mdash; the focused probe
+  is imaged there whatever dz is, and each Bragg beam lands displaced by &lambda;B<sub>s</sub>g = A&thinsp;dz&thinsp;&theta;<sub>g</sub>.
+  So the image-coupled aperture shows a spot array and the diffraction-coupled one overlapping discs, at any dz. Spots are
+  drawn larger than the 1.4&nbsp;nm probe so they are visible. For an amorphous film the strongest 250 Fourier beams are
+  added incoherently, so speckle is not modelled away from dz&nbsp;=&nbsp;0.</p>
+
 <h2>What the model leaves out</h2>
 
 <p>Paraxial rays only; no spherical or chromatic aberration of the lenses (the probe aberrations above are a separate input),

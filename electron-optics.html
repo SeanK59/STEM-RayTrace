@@ -2480,6 +2480,55 @@ function selftest() {
       chk('wave params: alpha (mrad)', wp.alpha * 1e3, 15, 1e-7); }
   }
 
+  /* ------------------------------------------------------------ G. wave images with the specimen off the crossover */
+  { const WVs = WaveImages, tab = m => document.querySelector('#couple button[data-mode="' + m + '"]').click();
+    // Bessel series vs scipy: the lattice's Bragg amplitudes are i^(m+n) J_m(s) J_n(s)
+    for (const [n, x, want] of [[0, 0.5, 0.9384698072408129], [1, 0.5, 0.2422684576748739], [2, 0.5, 0.030604023],
+                                [3, 0.5, 0.0025637], [0, 3, -0.26005195490193345], [1, 3, 0.3390589585259365],
+                                [-1, 3, -0.3390589585259365], [-2, 3, 0.4860912605858911]])
+      chk('J_' + n + '(' + x + ')', WVs.besselJ(n, x), want, 1e-6);
+    const setup = (mode, dzMm, spec) => { restore(); tab(mode); state.sampleDz = dzMm; state.alpha = 15; focusProbeOnSample();
+      const p = waveParams(analyse()); if (spec) p.spec = spec; return p; };
+    const peaks = (o, N, thr) => { const I = o.I; let mx = 0; for (let k = 0; k < I.length; k++) if (I[k] > mx) mx = I[k];
+      const pk = []; for (let i = 2; i < N - 2; i++) for (let j = 2; j < N - 2; j++) { const v = I[i * N + j];
+        if (v > thr * mx && v >= I[i * N + j - 1] && v >= I[i * N + j + 1] && v >= I[(i - 1) * N + j] && v >= I[(i + 1) * N + j] &&
+            v > I[(i - 2) * N + j] && v > I[(i + 2) * N + j] && v > I[i * N + j - 2] && v > I[i * N + j + 2]) pk.push([j, i, v / mx]); }
+      return pk; };
+    // (a) the Bragg-beam path reproduces the direct calculation wherever the direct one is valid (dz = 0.05 um), at the
+    //     diffraction-like aperture: same overlapping discs with the same coherent phases (independent route, same physics)
+    { const p = setup('diff', 0.05e-3), d = WVs.simulate(p), b = WVs.simulate(Object.assign({}, p, { forceBragg: true }));
+      let num = 0, den = 0; for (let k = 0; k < d.out.I.length; k++) { num += (d.out.I[k] - b.out.I[k]) ** 2; den += d.out.I[k] ** 2; }
+      chk('dz 0.05 um, diffraction plane: Bragg-beam path vs direct (relative L2)', Math.sqrt(num / den), 0, 0.01);
+      chk('... same branch', d.out.branch === b.out.branch ? 1 : 0, 1, 0);
+      chk('... the direct one is valid there', d.outOfWindow ? 0 : 1, 1, 0); }
+    // (b) far beyond the direct path's window (dz = 50 um): not flagged, unscattered disc radius |Bc| alpha for a vacuum specimen
+    { const p = setup('diff', 0.05, { type: 'vacuum', dA: 3.1355, sigma: 0.5, ellNm: 0.25 }), r = WVs.simulate(p), N = p.N;
+      chk('dz 50 um: handled by the Bragg-beam path', r.defocused ? 1 : 0, 1, 0);
+      chk('... not flagged out of window', r.outOfWindow ? 0 : 1, 1, 0);
+      let tot = 0, hi = 0, mx = 0; for (let k = 0; k < r.out.I.length; k++) { tot += r.out.I[k]; if (r.out.I[k] > mx) mx = r.out.I[k]; }
+      for (let k = 0; k < r.out.I.length; k++) if (r.out.I[k] > 0.5 * mx) hi++;
+      chk('... unscattered disc radius = |Bc| alpha (mm)', Math.sqrt(hi / Math.PI) * r.out.du, Math.abs(p.Mc.B) * p.alpha, 2 * r.out.du);
+      chk('... all the intensity is there', tot, 1, 1e-9); }
+    // (c) the image-coupled aperture at dz = 50 um is an array of SPOTS at lam Bs g, weights J_m^2 J_n^2
+    { const p = setup('img', 0.05), r = WVs.simulate(p), N = p.N, o = r.out, lam = p.lambda, d = 0.31355;
+      chk('image-coupled, dz 50 um: spots branch', o.branch === 'spots' ? 1 : 0, 1, 0);
+      const pk = peaks(o, N, 1e-3).map(q => [(q[0] - N / 2) * o.du * 1e6, (q[1] - N / 2) * o.du * 1e6, q[2]]);
+      const cen = pk.reduce((a, q) => q[2] > a[2] ? q : a, pk[0]);
+      chk('... brightest spot is on axis (nm)', Math.hypot(cen[0], cen[1]), 0, 2 * o.du * 1e6);
+      const sStep = Math.abs(lam * p.M.B * 1e6 / d);                           // lam Bs / d: the spacing of the spot array, nm
+      const near = pk.filter(q => Math.abs(Math.hypot(q[0], q[1]) - sStep) < 0.15 * sStep);
+      chk('... first-order spots sit at lam Bs / d (nm): count', near.length, 4, 0);
+      chk('... ... radius (nm)', near.reduce((a, q) => a + Math.hypot(q[0], q[1]), 0) / Math.max(1, near.length), sStep, 2 * o.du * 1e6);
+      chk('... ... weight J1^2/J0^2 relative to the direct beam', near.reduce((a, q) => a + q[2], 0) / Math.max(1, near.length) / cen[2],
+          Math.pow(0.2422684576748739 / 0.9384698072408129, 2), 0.02);
+      chk('... at least nine spots', pk.length >= 9 ? 1 : 0, 1, 0); }
+    // (d) image-coupled at dz = 0 has no shift at all: one spot, and the aperture really is an image plane
+    { const p = setup('img', 0), r = WVs.simulate(p);
+      chk('image-coupled, dz 0: direct path, not Bragg', r.defocused ? 0 : 1, 1, 0);
+      chk('... aperture B = 0 (mm)', p.M.B, 0, 1e-9); }
+    restore();
+  }
+
   restore();
   const txt = out.join('\n');
   console.log(txt);
@@ -2519,6 +2568,9 @@ function waveParams(r) {
   return {
     lambda: WV.wavelengthNm(state.kV), kV: state.kV, z2: z2, zSmp: Z_SMP,
     M: EC.chain(P, Z_SMP, z2),                 // the exact transfer matrix, specimen -> plane, through the fields
+    // ... and from the probe's crossover (where it is focused) to the plane: the well-sampled partner of M, used when
+    // the specimen is too far from the crossover for the probe to be computed on it (dz != 0)
+    Mc: (!r.collimated && isFinite(r.defocus) && Z_SMP + r.defocus < z2) ? EC.chain(P, Z_SMP + r.defocus, z2) : null,
     rot: EC.rotation(P, Z_SMP, z2),            // Larmor rotation on the way
     alpha: r.alpha, collimated: r.collimated, spotR: Math.abs(r.yRef) * r.u0max,
     // how far the specimen sits PAST the probe crossover: +C10 in this sign convention
@@ -2548,8 +2600,13 @@ function renderWave() {
   }
   el$('wcap1').innerHTML = (p.collimated
       ? 'Parallel illumination &middot; illuminated radius ' + WV.fmtLen(p.spotR) + ', far wider than this window'
-      : 'Probe &middot; &alpha; ' + (p.alpha * 1e3).toPrecision(3) + ' mrad &middot; defocus ' +
-        WV.fmtLen(p.defocusNm * 1e-6) + (isFinite(r.fwhm) ? ' &middot; FWHM ' + WV.fmtLen(r.fwhm * 1e-6) : '')) +
+      : r.defocused
+        ? 'Probe at its crossover &middot; &alpha; ' + (p.alpha * 1e3).toPrecision(3) + ' mrad' +
+          (isFinite(r.fwhm) ? ' &middot; FWHM ' + WV.fmtLen(r.fwhm * 1e-6) : '') +
+          '<br>the specimen is ' + WV.fmtLen(Math.abs(p.defocusNm) * 1e-6) + ' ' + (p.defocusNm > 0 ? 'past' : 'before') +
+          ' it, where the beam is a disc of radius ' + WV.fmtLen(Math.abs(p.defocusNm) * p.alpha * 1e-6)
+        : 'Probe &middot; &alpha; ' + (p.alpha * 1e3).toPrecision(3) + ' mrad &middot; defocus ' +
+          WV.fmtLen(p.defocusNm * 1e-6) + (isFinite(r.fwhm) ? ' &middot; FWHM ' + WV.fmtLen(r.fwhm * 1e-6) : '')) +
     '<br>window ' + WV.fmtLen(r.win * 1e-6) + ', pixel ' + WV.fmtLen(r.g.dx * 1e-6) +
     (r.outOfWindow ? '<br><span class="bad">The probe spans about ' + WV.fmtLen(2 * r.probeR * 1e-6) +
       ' here, more than the window holds. Refocus, trim with C10, or raise the grid.</span>' : '');
@@ -2568,7 +2625,7 @@ function renderWave() {
   const theta = p.spec.type === 'lattice' ? p.lambda / (p.spec.dA / 10) : NaN;
   // the ray trace's marginal ray leaves the probe crossover at slope alpha: it meets the specimen at dz_past * alpha
   // and this plane at alpha |A dz_past + B| (|B| alpha at a diffraction plane, the aperture radius L alpha)
-  const edge = p.alpha * Math.abs(r.M.A * p.defocusNm * 1e-6 + r.M.B);
+  const edge = r.defocused ? p.alpha * Math.abs(p.Mc.B) : p.alpha * Math.abs(r.M.A * p.defocusNm * 1e-6 + r.M.B);
   if (wave.ovl && !r.outOfWindow) {
     const c = N / 2, px = mm => mm / o.du;
     g2.save(); g2.translate(c, c); g2.rotate(-p.rot);            // the overlay turns with the picture
@@ -2595,9 +2652,13 @@ function renderWave() {
     ' &middot; A ' + r.M.A.toPrecision(4) + ', B ' + r.M.B.toPrecision(4) + ' mm' +
     '<br>window ' + WV.fmtLen(N * o.du) + ', pixel ' + WV.fmtLen(o.du) + ' &middot; turned ' + rotDeg.toFixed(0) +
     '&deg; by the lens fields (all lenses the same polarity; hatched = outside the computed window)' + (o.flip ? ' &middot; inverted back upright' : '');
+  const bragg = r.defocused
+    ? '<br>Specimen off the crossover: the pattern is ' + r.nBeams + ' Bragg beams, each a copy of the focused probe\'s ' +
+      'output shifted by &lambda;B<sub>s</sub>g (' + (r.coherent ? 'added coherently, pixel-averaged' : o.branch === 'spots' ? 'separate spots, added incoherently; each drawn larger than the 1.4 nm probe so it can be seen' : 'added incoherently') + ').'
+    : '';
   el$('wmore').innerHTML = 'render ' + Math.round(waveLast.ms) + ' ms &middot; ' +
     (o.branch === 'fourier' ? 'chirp &middot; FFT' : 'angular spectrum &times; A') + ' &middot; &lambda; ' +
-    (p.lambda * 1e3).toFixed(3) + ' pm at ' + p.kV + ' kV';
+    (p.lambda * 1e3).toFixed(3) + ' pm at ' + p.kV + ' kV' + bragg;
   const ck = analyse().chk;
   if (planeState('EAP', ck.EAP).kind !== 'ok' || planeState('EFP', ck.EFP).kind !== 'ok')
     el$('wmore').innerHTML += '<br><b style="color:#ffb74d">The EELS planes are not matched for ' +

@@ -464,6 +464,10 @@ What it adds over the thin-lens page:
 * **Wave images** of the probe at the specimen and the pattern at the EELS planes (or any plane), from the
   exact matrices with Krivanek aberrations (Nion-corrector residuals of ~2 / 20 / 200 nm are one click away),
   thin phase specimens and a Collins integral, rotated by the Larmor angle.
+* **Specimen off the crossover (dz != 0)**: the wave images stay valid at any dz. The specimen is a sum of Bragg beams,
+  each of which shifts and phases the output of the focused probe by an exact formula, so nothing is computed on a
+  grid that has to hold the defocused probe. Image-coupled apertures show spots, diffraction-coupled ones overlapping
+  discs, and the result matches the direct calculation to 0.1 % where that is still valid.
 * **Illumination reach**: focused 0.041 mrad and up with C1 free (2.04-138 mrad from C2 + C3 alone),
   parallel 0.003-0.57 mrad from C2 + C3 alone and the whole slider with C1.
 

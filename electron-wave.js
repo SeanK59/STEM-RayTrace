@@ -208,11 +208,11 @@ const WaveImages = (function () {
    *  function each stop being sampled at Nyquist. The outgoing phase (the D term, and the 1/A lens) never changes an
    *  intensity, so it is not computed.
    *  Returns { I, du (mm), branch, flip } -- flip is true when the plane is inverted (A or B < 0). */
-  function propagate(re0, im0, g, lam, M) {
-    const N = g.N, dx = g.dx, NN = N * N;
+  function propagateField(re0, im0, g, lam, M) {
+    const N = g.N, dx = g.dx;
     const re = Float64Array.from(re0), im = Float64Array.from(im0);
     const A = M.A, Bnm = M.B * 1e6, zStar = N * dx * dx / lam;
-    let du, branch, flip;
+    let delta, branch, flip;
     if (Math.abs(Bnm) >= Math.abs(A) * zStar) {
       branch = 'fourier';
       const q = Math.PI * A / (lam * Bnm);
@@ -225,7 +225,7 @@ const WaveImages = (function () {
         }
       }
       cfft2(re, im, N, false);
-      du = lam * Math.abs(Bnm) / (N * dx) * 1e-6;
+      delta = lam * Bnm / (N * dx);                     // signed nm per output pixel: u = (j - N/2) delta
       flip = Bnm < 0;
     } else {
       branch = 'fresnel';
@@ -240,14 +240,18 @@ const WaveImages = (function () {
         }
       }
       cfft2(re, im, N, true);
-      du = Math.abs(A) * dx * 1e-6;
+      delta = A * dx;                                   // u = (j - N/2) delta (the image is magnified by A)
       flip = A < 0;
     }
+    return { re, im, delta, branch, flip, zStar };
+  }
+  function propagate(re0, im0, g, lam, M) {
+    const f = propagateField(re0, im0, g, lam, M), NN = g.N * g.N;
     const I = new Float64Array(NN);
     let s = 0;
-    for (let k = 0; k < NN; k++) { I[k] = re[k] * re[k] + im[k] * im[k]; s += I[k]; }
+    for (let k = 0; k < NN; k++) { I[k] = f.re[k] * f.re[k] + f.im[k] * f.im[k]; s += I[k]; }
     if (s > 0) for (let k = 0; k < NN; k++) I[k] /= s;
-    return { I, du, branch, flip, zStar: zStar };
+    return { I, du: Math.abs(f.delta) * 1e-6, branch: f.branch, flip: f.flip, zStar: f.zStar };
   }
 
   /** Full width at half maximum along x through the brightest pixel, linear interpolation, nm. */
@@ -266,6 +270,200 @@ const WaveImages = (function () {
     return (right - left) * g.dx;
   }
 
+  /* ------------------------------------------------------------ finite specimen height (dz != 0)
+
+     A probe focused on the crossover plane z_c is a DISC of radius dz*alpha on a specimen dz away. Its wave-optical
+     description needs a grid that holds that disc AND resolves its defocus phase (the local angle reaches alpha), which
+     grows with dz and is out of reach beyond a micron or so. The way out is to never put the wave on the specimen.
+
+     A thin periodic specimen is a sum of plane-wave modulations, T(r) = sum_g t_g exp(2 pi i g.r). Through any ABCD
+     system with matrix Ms (specimen -> plane), modulation by exp(2 pi i g.r) only SHIFTS the output and adds a phase:
+
+         out_g(u) = exp[2 pi i Ds g.u - i pi Ds Bs lam g^2] * F(u - lam Bs g),
+
+     where F is the output for the UNMODULATED wave. F is the same function whatever the specimen, and by the composition
+     of ABCD systems it equals the propagation of the focused probe from its crossover through Mc = Ms . Mdz, which is
+     the well-sampled dz = 0 calculation. So the pattern is   out(u) = sum_g t_g out_g(u)   -- a handful of copies of F,
+     displaced by lam Bs g, with the exact relative phases. Nothing in this depends on how far the specimen is.
+
+     What each plane shows follows from F. At a diffraction-like plane F is the pupil disc (radius |Bc| alpha), so the
+     beams are discs displaced by lam Bs g and they interfere where they overlap. At an image-like plane F is the
+     magnified focused probe, a spot, so the beams are separate spots displaced by lam Bs g = A dz theta_g -- the
+     image-coupled aperture shows SPOTS however far the specimen is from the crossover. */
+
+  /** Bessel function J_n(x) of integer order by its power series (fine for |x| up to ~20). */
+  function besselJ(n, x) {
+    const an = Math.abs(n), h = x / 2;
+    let term = an === 0 ? 1 : Math.pow(h, an);
+    for (let k = 2; k <= an; k++) term /= k;
+    let s = term;
+    for (let k = 1; k < 120; k++) {
+      term *= -h * h / (k * (k + an));
+      s += term;
+      if (k > 3 && Math.abs(term) < 1e-18 * Math.abs(s)) break;
+    }
+    return (n < 0 && an % 2) ? -s : s;
+  }
+
+  /** Bragg beams of the lattice phase object exp[i s (cos(2 pi x/d) + cos(2 pi y/d))]:
+   *  exp(i s cos u) = sum_n i^n J_n(s) exp(i n u), so t(m,n) = i^(m+n) J_m(s) J_n(s) at g = (m, n)/d. */
+  function latticeBeams(p) {
+    const d = p.spec.dA / 10, s = p.spec.sigma, J = [];
+    let nmax = 0;
+    for (let n = 0; n <= 16; n++) { J[n] = besselJ(n, s); if (Math.abs(J[n]) > 1e-4) nmax = n; }
+    const jn = n => (n < 0 && (-n) % 2) ? -J[-n] : J[Math.abs(n)];
+    const PH = [[1, 0], [0, 1], [-1, 0], [0, -1]], out = [];
+    for (let m = -nmax; m <= nmax; m++)
+      for (let n = -nmax; n <= nmax; n++) {
+        const w = jn(m) * jn(n);
+        if (w * w < 1e-5 && !(m === 0 && n === 0)) continue;     // below the display's four decades
+        const ph = PH[(((m + n) % 4) + 4) % 4];
+        out.push({ gx: m / d, gy: n / d, re: w * ph[0], im: w * ph[1] });
+      }
+    return out;
+  }
+
+  /** The strongest `cap` Fourier components of exp(i phi) for a periodic phase screen on the grid (amorphous film). */
+  function screenBeams(p, g, cap) {
+    const N = g.N, NN = N * N, phase = specimenPhase(p, g);
+    if (!phase) return [{ gx: 0, gy: 0, re: 1, im: 0 }];
+    const re = new Float64Array(NN), im = new Float64Array(NN);
+    for (let k = 0; k < NN; k++) { re[k] = Math.cos(phase[k]); im[k] = Math.sin(phase[k]); }
+    cfft2(re, im, N, false);
+    const idx = [];
+    for (let k = 0; k < NN; k++) { const w = (re[k] * re[k] + im[k] * im[k]) / (NN * NN); if (w > 1e-9) idx.push([w, k]); }
+    idx.sort((a, b) => b[0] - a[0]);
+    const dk = 1 / (N * g.dx), out = [];
+    for (const [, k] of idx.slice(0, cap)) {
+      const i = Math.floor(k / N), j = k % N;
+      out.push({ gx: (j - N / 2) * dk, gy: (i - N / 2) * dk, re: re[k] / NN, im: im[k] / NN });
+    }
+    return out;
+  }
+
+  const sinc = x => Math.abs(x) < 1e-9 ? 1 : Math.sin(x) / x;
+
+  /** The dz != 0 render: see the block comment above. Returns the same shape as simulate(). p.Mc is the matrix from
+   *  the probe's crossover to the plane; p.M is the one from the specimen. */
+  function simulateDefocused(p) {
+    const lam = p.lambda, p0 = Object.assign({}, p, { defocusNm: 0 });
+    const g = chooseGrid(p0), N = g.N, NN = N * N, win = N * g.dx;
+    const probe = buildProbe(p0, g);
+    const I1 = new Float64Array(NN);
+    for (let k = 0; k < NN; k++) I1[k] = probe.re[k] * probe.re[k] + probe.im[k] * probe.im[k];
+    const F = propagateField(probe.re, probe.im, g, lam, p.Mc);
+    const Bs = p.M.B * 1e6, Ds = p.M.D, Bc = p.Mc.B * 1e6, Dc = p.Mc.D, Ac = p.Mc.A, Cc = p.Mc.C * 1e-6;
+    const coherentOK = p.spec.type !== 'amorph';
+    const beams = p.spec.type === 'lattice' ? latticeBeams(p)
+                : p.spec.type === 'amorph'  ? screenBeams(p, g, 250)
+                : [{ gx: 0, gy: 0, re: 1, im: 0 }];
+    let pw = 0; for (const b of beams) pw += b.re * b.re + b.im * b.im;
+    for (const b of beams) { b.t2 = b.re * b.re + b.im * b.im; b.sx = lam * Bs * b.gx; b.sy = lam * Bs * b.gy; }
+    const Iout = new Float64Array(NN), delta = F.delta;
+    let branch = F.branch, du = Math.abs(delta) * 1e-6, flip = F.flip;
+
+    if (F.branch === 'fourier') {
+      // ---- diffraction-like plane: discs displaced by lam Bs g, added with their exact phases
+      const qc = Math.PI * Dc / (lam * Bc);
+      // support of F, to skip the empty plane quickly
+      let i0 = N, i1 = -1, j0 = N, j1 = -1, mx = 0;
+      const PhiI = new Float64Array(NN);
+      for (let k = 0; k < NN; k++) { PhiI[k] = F.re[k] * F.re[k] + F.im[k] * F.im[k]; if (PhiI[k] > mx) mx = PhiI[k]; }
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+        if (PhiI[i * N + j] > 1e-6 * mx) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; }
+      const nb = beams.length;
+      for (const b of beams) {
+        b.ox = b.sx / delta; b.oy = b.sy / delta;                               // pixel offsets of the copies
+        b.bi0 = Math.floor(i0 + b.oy) - 1; b.bi1 = Math.ceil(i1 + b.oy) + 1;       // where this copy lives
+        b.bj0 = Math.floor(j0 + b.ox) - 1; b.bj1 = Math.ceil(j1 + b.ox) + 1;
+      }
+      // pair factors: pixel-averaged cross terms (the phase difference of two beams is linear in u)
+      const S = new Float64Array(nb * nb);
+      if (coherentOK)
+        for (let a = 0; a < nb; a++) for (let c = 0; c < nb; c++) {
+          const Kx = 2 * Math.PI * Ds * (beams[a].gx - beams[c].gx) - 2 * qc * (beams[a].sx - beams[c].sx);
+          const Ky = 2 * Math.PI * Ds * (beams[a].gy - beams[c].gy) - 2 * qc * (beams[a].sy - beams[c].sy);
+          S[a * nb + c] = sinc(Kx * Math.abs(delta) / 2) * sinc(Ky * Math.abs(delta) / 2);
+        }
+      const cr = new Float64Array(nb), ci = new Float64Array(nb), act = new Int32Array(nb);
+      const PHr = F.re, PHi = F.im;
+      let ubi0 = N, ubi1 = -1, ubj0 = N, ubj1 = -1;
+      for (const b of beams) {
+        ubi0 = Math.min(ubi0, Math.floor(i0 + b.oy) - 1); ubi1 = Math.max(ubi1, Math.ceil(i1 + b.oy) + 1);
+        ubj0 = Math.min(ubj0, Math.floor(j0 + b.ox) - 1); ubj1 = Math.max(ubj1, Math.ceil(j1 + b.ox) + 1);
+      }
+      ubi0 = Math.max(0, ubi0); ubj0 = Math.max(0, ubj0); ubi1 = Math.min(N - 1, ubi1); ubj1 = Math.min(N - 1, ubj1);
+      for (let i = ubi0; i <= ubi1; i++) {
+        const uy = (i - N / 2) * delta;
+        for (let j = ubj0; j <= ubj1; j++) {
+          const ux = (j - N / 2) * delta;
+          let na = 0;
+          for (let q = 0; q < nb; q++) {
+            const b = beams[q];
+            if (i < b.bi0 || i > b.bi1 || j < b.bj0 || j > b.bj1) continue;
+            const fi = i - b.oy, fj = j - b.ox;
+            if (fi < 0 || fj < 0 || fi > N - 1 || fj > N - 1) continue;
+            const a0 = Math.floor(fi), b0 = Math.floor(fj), ty = fi - a0, tx = fj - b0;
+            const a1 = Math.min(N - 1, a0 + 1), b1 = Math.min(N - 1, b0 + 1);
+            const k00 = a0 * N + b0, k01 = a0 * N + b1, k10 = a1 * N + b0, k11 = a1 * N + b1;
+            const w00 = (1 - ty) * (1 - tx), w01 = (1 - ty) * tx, w10 = ty * (1 - tx), w11 = ty * tx;
+            const fr = w00 * PHr[k00] + w01 * PHr[k01] + w10 * PHr[k10] + w11 * PHr[k11];
+            const fm = w00 * PHi[k00] + w01 * PHi[k01] + w10 * PHi[k10] + w11 * PHi[k11];
+            if (fr === 0 && fm === 0) continue;
+            const dxu = ux - b.sx, dyu = uy - b.sy;
+            const th = 2 * Math.PI * Ds * (b.gx * ux + b.gy * uy) - Math.PI * Ds * Bs * lam * (b.gx * b.gx + b.gy * b.gy)
+                     + qc * (dxu * dxu + dyu * dyu);
+            const cs = Math.cos(th), sn = Math.sin(th);
+            const ar = fr * cs - fm * sn, ai = fr * sn + fm * cs;           // F * exp(i theta)
+            cr[na] = b.re * ar - b.im * ai; ci[na] = b.re * ai + b.im * ar; act[na] = q; na++;
+          }
+          if (!na) continue;
+          let v = 0;
+          for (let a = 0; a < na; a++) v += cr[a] * cr[a] + ci[a] * ci[a];
+          if (coherentOK)
+            for (let a = 0; a < na; a++)
+              for (let c = a + 1; c < na; c++)
+                v += 2 * S[act[a] * nb + act[c]] * (cr[a] * cr[c] + ci[a] * ci[c]);
+          Iout[i * N + j] = v;
+        }
+      }
+    } else {
+      // ---- image-like plane: the beams are well-separated magnified copies of the focused probe, i.e. spots. Their
+      // separations (lam Bs g) dwarf a spot, so they add incoherently; draw each as a Gaussian of the probe's width on
+      // a window that holds them all.
+      branch = 'spots';
+      const PhiI = new Float64Array(NN);
+      for (let k = 0; k < NN; k++) PhiI[k] = F.re[k] * F.re[k] + F.im[k] * F.im[k];
+      let fw = fwhmOf(PhiI, g) * Math.abs(Ac);
+      if (!isFinite(fw) || fw <= 0) fw = 2 * Math.abs(delta);
+      const sig = fw / 2.3548;
+      let reach = 0;
+      for (const b of beams) if (b.t2 > 1e-5) reach = Math.max(reach, Math.hypot(b.sx, b.sy));
+      const W = Math.max(2.4 * reach, 40 * sig, 16 * sig);
+      const Dlt = W / N, se2 = sig * sig + 1.7 * Dlt * Dlt,        // drawn about 1.3 display pixels wide so they can be seen;
+        // the flux of each spot is exact, only its picture is larger than the 1.4 nm probe
+        se = Math.sqrt(se2), sA = Ac < 0 ? -1 : 1;
+      const rp = Math.ceil(4 * se / Dlt);
+      for (const b of beams) {
+        const cx = N / 2 + b.sx * sA / Dlt, cy = N / 2 + b.sy * sA / Dlt;
+        if (cx < -rp || cy < -rp || cx > N + rp || cy > N + rp) continue;
+        const amp = b.t2 / pw / (2 * Math.PI * se2) * Dlt * Dlt;
+        for (let i = Math.max(0, Math.round(cy) - rp); i <= Math.min(N - 1, Math.round(cy) + rp); i++)
+          for (let j = Math.max(0, Math.round(cx) - rp); j <= Math.min(N - 1, Math.round(cx) + rp); j++) {
+            const ex = (j - cx) * Dlt, ey = (i - cy) * Dlt;
+            Iout[i * N + j] += amp * Math.exp(-(ex * ex + ey * ey) / (2 * se2));
+          }
+      }
+      du = Dlt * 1e-6;
+    }
+    let s = 0;
+    for (let k = 0; k < NN; k++) s += Iout[k];
+    if (s > 0) for (let k = 0; k < NN; k++) Iout[k] /= s;
+    const out = { I: Iout, du: du, branch: branch, flip: flip, zStar: F.zStar };
+    return { g, win, I1, phase: null, M: p.M, rot: p.rot || 0, out, outOfWindow: false, probeR: 0, defocused: true,
+             nBeams: beams.length, coherent: coherentOK && F.branch === 'fourier', fwhm: fwhmOf(I1, g) };
+  }
+
   /** One full render's worth of physics. p carries everything, including p.M (the exact transfer matrix from the
    *  specimen to the plane) and p.rot (the Larmor rotation on the way); nothing here reads the page. */
   function simulate(p) {
@@ -275,6 +473,7 @@ const WaveImages = (function () {
     const probeR = p.collimated ? 0 : Math.abs(p.defocusNm + (p.aberr.C10 ? p.aberr.C10[0] : 0)) * p.alpha
                                     + 3 * p.lambda / Math.max(p.alpha, 1e-9);
     const outOfWindow = !p.collimated && probeR > 0.45 * win;
+    if (!p.collimated && p.Mc && (outOfWindow || p.forceBragg)) return simulateDefocused(p);
     const probe = buildProbe(p, g);
     const phase = specimenPhase(p, g);
     const exRe = Float64Array.from(probe.re), exIm = Float64Array.from(probe.im);
@@ -351,7 +550,7 @@ const WaveImages = (function () {
     g.fillText(fmtLen(len), N - w / 2 - 17 * s, N - 20 * s);
   }
 
-  return { wavelengthNm, ABERR, NION_RESIDUALS, cfft2, simulate, propagate, chooseGrid, buildProbe, specimenPhase,
+  return { wavelengthNm, ABERR, NION_RESIDUALS, cfft2, simulate, simulateDefocused, propagate, propagateField, besselJ, latticeBeams, chooseGrid, buildProbe, specimenPhase,
            fwhmOf, mulberry32, paint, scaleBar, fmtLen, niceLen };
 })();
 
