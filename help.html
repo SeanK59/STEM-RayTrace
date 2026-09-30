@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEM Column Ray Trace &mdash; Help</title>
+<style>
+:root{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);
+     font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{padding:14px 20px 12px;border-bottom:1px solid var(--line)}
+.home-link{font-size:.9rem;margin-bottom:.55rem}
+a{color:var(--accent)}
+.home-link a{text-decoration:none}
+.home-link a:hover{text-decoration:underline}
+h1{margin:0;font-size:19px;font-weight:600;color:var(--accent);letter-spacing:.2px}
+header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
+main{max-width:820px;margin:0 auto;padding:8px 20px 40px}
+h2{margin:28px 0 6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;
+   text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
+h2:first-child{border-top:0;margin-top:16px}
+p{margin:0 0 12px;color:#cfcfcf;font-size:13.5px}
+p b{color:var(--fg)}
+code{background:#1c1c1c;padding:1px 4px;border-radius:3px;font-size:12.5px}
+footer{max-width:820px;margin:0 auto;padding:12px 20px 28px;border-top:1px solid var(--line);
+       color:var(--dim);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="home-link"><a href="https://seankung.ca/">&larr; seankung.ca</a> &nbsp;&middot;&nbsp;
+    <a href="./">&larr; back to the ray trace</a></nav>
+  <h1>STEM Column Ray Trace &mdash; Help</h1>
+  <div class="sub">How the controls work, the optics behind them, and what the model leaves out</div>
+</header>
+
+<main>
+<h2>Reading the figure</h2>
+
+<p><b>How to read it.</b> Solid rays are the real illumination, traced by the
+  <a href="https://github.com/ricktu288/ray-optics">Ray Optics</a> engine from a point source through the VOA.
+  Teal dashed lines are <b>sample images</b>, orange dashed lines are <b>diffraction planes</b>. Both are read off the
+  post-sample transfer matrix [[A,B],[C,D]]: an image plane is where B&nbsp;=&nbsp;0 and a diffraction plane is where
+  A&nbsp;=&nbsp;0. Neither depends on the condenser, so both stay correct in TEM and STEM alike. The
+  <b>illumination crossovers</b> listed in the readout are a different thing &mdash; images of the <i>source</i>. With
+  a focused probe they land on the sample images; with parallel illumination they land on the <b>diffraction</b>
+  planes instead, which is why they cannot be used to classify planes.</p>
+
+<p><b>The number under each label</b> is the primary beam <b>radius</b> at that plane.</p>
+
+<h2>Lens controls</h2>
+
+<p><b>Lens sliders are logarithmic in focal length</b>, spanning 10000&nbsp;mm down to the strength limit at about
+  0.8% per step, with <b>off</b> at the bottom of travel and stronger upwards. The limit is <b>4&nbsp;mm</b> for every
+  round lens and <b>1.5&nbsp;mm</b> for the objective (which normally runs at 2&nbsp;mm), and it is what bounds
+  everything else. From the shipped column the EELS solver reaches camera lengths of about
+  <b>0.002&ndash;700&nbsp;mm</b> and magnifications of about <b>0.06&ndash;20000&times;</b>, though only
+  L&nbsp;0.02&ndash;100&nbsp;mm and M&nbsp;0.5&ndash;3000 with three lenses; past that it has to switch PL3 on or use
+  the four-lens stage. The long camera lengths are the hard end because the objective is strong:
+  L&nbsp;=&nbsp;f<sub>OL2</sub>&thinsp;M, so with f<sub>OL2</sub>&nbsp;=&nbsp;2&nbsp;mm every millimetre of camera
+  length has to be bought as projector magnification. It is the lens strength that binds, not the
+  spacing between the projector lenses.</p>
+
+<p><b>The checkbox at the foot of a lens stack pins that lens</b>, and a solve may not move a pinned lens.
+  <b>EL is pinned on a fresh load</b>, since holding the EELS lens while PL1&ndash;PL4 do the work is the
+  common case; nothing else is. Only the eight lenses a solve can actually reach carry one &mdash; C1, C2 and C3,
+  which the illumination solve owns, and PL1&ndash;PL4 plus EL, which the EELS solve owns. The objective is set by
+  hand only, with one control for both of its halves, so it has none. Pinning narrows the search rather than
+  breaking it: matching both EELS planes at a chosen camera length is three conditions, so it needs at least
+  three free projector lenses, and below that the solve refuses and says which lenses are pinned. The
+  illumination solve has no slack in C2 and C3 &mdash; it sets the mode and the convergence angle with exactly
+  those two &mdash; so pinning either one stops it outright; pinning C1 only stops it from bringing C1 in.</p>
+
+<h2>Radial scale, zoom and specimen height</h2>
+
+<p><b>Radial exaggeration <code>K</code> is cosmetic.</b> It is pure
+  vertical zoom &mdash; the beam is a fraction of a mm across in a 1595&nbsp;mm column, so it has to be stretched to be
+  seen. That is exact rather than a cheat: an ideal thin lens is perfectly linear in
+  (<i>y</i>, d<i>y</i>/d<i>z</i>), so scaling every radial quantity while leaving <i>z</i> and every focal length alone
+  reproduces the identical diagram, and no reported number moves.</p>
+
+<p><b>Horizontal zoom</b> (the controls beside copy/save) stretches the <i>z</i> axis only, up to 2000&times;, so
+  the 4&nbsp;mm between OL1 and OL2 can be filled with beam; the radial scale <code>K</code> is not touched, and no
+  reported number moves. The scroll bar under the figure, dragging the figure, sideways scroll or shift&nbsp;+&nbsp;wheel
+  move along the column, and Ctrl/Cmd&nbsp;+&nbsp;wheel (or a trackpad pinch) zooms at the cursor. <b>fit&nbsp;K</b>
+  refits <code>K</code> to the beam inside the current window &mdash; zoomed onto the gap a 30&nbsp;&micro;m beam is only a
+  couple of pixels tall at the <code>K</code> that fits the whole column &mdash; and copy/save export the view as shown.</p>
+
+<p><b>Sample defocus <code>dz</code></b> shifts the specimen off the OL1/OL2 midpoint, positive toward OL2, up to
+  &plusmn;1&nbsp;mm &mdash; inside the 4&nbsp;mm gap, and enough to run a confocal depth series. Note that the
+  diffraction planes do <i>not</i> move when the sample does: a ray leaving the sample parallel to the axis stays
+  parallel until OL2, so they are set by OL2 and downstream only. The image planes do move.</p>
+
+<p><b>Reference plane vs specimen.</b> The <b>reference plane</b> at z&nbsp;=&nbsp;785, midway between OL1 and OL2, is
+  the objective's nominal object plane and never moves &mdash; every conjugate, camera length, magnification and solve
+  is referenced to it, just as a real column's projectors are aligned to a fixed height. The <b>specimen</b> sits at
+  785&nbsp;+&nbsp;dz and affects only the Bragg cone origin, the beam radius on the specimen, the probe-defocus
+  readout and its own marker. Sweeping dz therefore moves nothing optical; it just takes the probe off the specimen.</p>
+
+<h2>Illumination</h2>
+
+<p><b>The two illumination modes</b> are set by the condenser. The objective's thin lenses sit on the pole faces,
+  2&nbsp;mm either side of the specimen, so with f&nbsp;=&nbsp;2&nbsp;mm the specimen is exactly on OL1's back
+  focal plane: a <b>focused probe</b> is a parallel beam into OL1, and <b>parallel illumination</b> needs the
+  condenser crossover on OL1's front focal plane at 781 instead. <b>&alpha;</b> is the marginal ray's slope inside
+  the objective gap &mdash; the ordinary convergence semi-angle, equal to the beam radius at OL1 over
+  f<sub>OL1</sub>. Under parallel illumination that slope is zero, so there &alpha; means the angle OL2 focuses the
+  beam to, and the illuminated radius is exactly <b>r&nbsp;=&nbsp;&alpha;&thinsp;f<sub>OL2</sub></b>. A condenser
+  beam that is not quite parallel moves the probe crossover off the specimen by f<sup>2</sup>/x, for a condenser
+  crossover a distance x from OL1's front focal plane &mdash; about 8&nbsp;&micro;m for one near C3 &mdash; which is
+  the scale of the few-micron offset the real column is run with.
+  The &alpha; slider spans <b>0.05&ndash;50&nbsp;mrad</b> and applies live, keeping whichever mode you last chose;
+  the VOA stays fixed. <b>C2 and C3 set both the mode and the angle</b>, in closed form. From the bare point source
+  they reach <b>0.714&ndash;137.5&nbsp;mrad</b> focused &mdash; the column's 39&nbsp;mrad working point needs no C1
+  &mdash; and 0.0030&ndash;0.57&nbsp;mrad parallel; outside that the solve <b>brings C1 in</b> &mdash; it scans C1,
+  solves C2&nbsp;+&nbsp;C3 exactly at every step, keeps the gentlest setting, and says so in the banner. With C1
+  free the focused floor is 0.043&nbsp;mrad and <b>every slider position solves in both modes</b>. A C1 that is
+  already on stays where it is whenever C2&nbsp;+&nbsp;C3 can follow. The 15&nbsp;mrad default is
+  C2&nbsp;=&nbsp;240/11 with C3&nbsp;=&nbsp;36&nbsp;mm, C1 off: C3 collimates the crossover C2 makes at 264.</p>
+
+<h2>EELS coupling</h2>
+
+<p><b>The two EELS coupling modes</b> are exact mirrors of one another, and mutually exclusive:
+  <i>diffraction-coupled</i> puts the diffraction pattern on the entrance aperture and the sample image on the EELS
+  focal plane; <i>image-coupled</i> swaps them. Either pairing uses up two degrees of freedom, so a two-lens solve
+  would leave the third quantity as whatever fell out &mdash; a third projector lens buys it back. In diffraction
+  coupling the knob is <b>camera length L</b> and Mag&nbsp;=&nbsp;45/L follows; in image coupling the knob is
+  <b>magnification M</b> and L&nbsp;=&nbsp;45/M at the focal plane follows (45&nbsp;mm being the gap between the two
+  EELS planes). Because both conditions live entirely in the post-sample matrix, <b>matching works identically under
+  focused and parallel illumination</b> &mdash; the same projector solve either way.</p>
+
+<p><b>The checkbox beside that value decides whether it is an input at all.</b> Checked, it is a target and the
+  solve has three conditions to meet, so it needs three free projector lenses. Clear it and the target stops
+  being a condition: the solve matches the two planes on their own with <b>two</b> lenses &mdash; every pair,
+  in both role orders, gentlest wins &mdash; and whatever camera length falls out is written back to the
+  slider, so the control becomes a readout. Whether a given pair has a solution depends on where the lenses
+  you did <i>not</i> free are sitting: from the shipped column five of the six PL pairs solve, spanning
+  L&nbsp;=&nbsp;0.68 to 28.2&nbsp;mm, and PL3&nbsp;+&nbsp;PL4 does not; with the other two projectors switched off a
+  different three do &mdash; PL1&nbsp;+&nbsp;PL4, PL2&nbsp;+&nbsp;PL4 and PL3&nbsp;+&nbsp;PL4.</p>
+
+<p><b>Where A and B come from.</b> Write the ray-transfer matrix from the <i>reference plane</i> to whichever plane you
+  care about as [[A,&nbsp;B],&nbsp;[C,&nbsp;D]]. A ray leaving the reference plane with height <i>y</i> and slope
+  <i>&theta;</i> arrives at height A<i>y</i>&nbsp;+&nbsp;B<i>&theta;</i>. At a <b>diffraction plane</b> A&nbsp;=&nbsp;0,
+  so it arrives at B<i>&theta;</i> &mdash; position depends only on angle &mdash; and that B <i>is</i> the
+  <b>camera length</b> L in r&nbsp;=&nbsp;L&thinsp;&theta;. At an <b>image plane</b> B&nbsp;=&nbsp;0, so it arrives at
+  A<i>y</i>, and that A <i>is</i> the <b>magnification</b>. Both are shown at both EELS planes and greyed out wherever
+  the plane is not of the matching kind, because that is the only place each means what it is called.</p>
+
+<p>Camera length defined this way is the same number as the textbook L&nbsp;=&nbsp;f<sub>OL2</sub>&thinsp;M &mdash;
+  OL2's back focal plane at z&nbsp;=&nbsp;789 is conjugate to the aperture at
+  M&nbsp;=&nbsp;&minus;14.1, so 2&nbsp;&times;&nbsp;14.1&nbsp;=&nbsp;28.2&nbsp;mm &mdash; the two definitions
+  are the same number, always, whenever the aperture really is a diffraction plane. It is perfectly meaningful in
+  STEM: it is what decides which scattering angles get inside the aperture. Note that the beam radius the figure
+  prints at the aperture is exactly <b>L&thinsp;&alpha;</b>, so it says nothing about the element spacings &mdash;
+  at the shipped 28.2&nbsp;mm camera length a focused 39&nbsp;mrad probe puts it at 1.10&nbsp;mm, which is the
+  measurement the projector defaults are set from.</p>
+
+<h2>Bragg cones and camera-length calibration</h2>
+
+<p><b>Bragg cones</b> are a construction: the illumination re-emitted at &plusmn;&theta;<sub>B</sub>, amber for +1 and
+  violet for &minus;1. Each cone ray leaves from its own primary ray's position on the sample, so a focused probe gives
+  cones from a point and parallel illumination gives cones across the whole illuminated width. They merge at every
+  image plane and spread into separated discs at every diffraction plane, which is what a CBED pattern shows &mdash;
+  but the exact plane positions come from the paraxial solver, not from the cones.</p>
+
+<p><b>The &plusmn;1 Bragg spacing</b> in the readout is the centre-to-centre distance between those two discs at
+  the EELS aperture, and it is exactly <b>2&thinsp;L&thinsp;&theta;<sub>B</sub></b>: every cone ray is its own
+  primary ray displaced by L&thinsp;&theta;<sub>B</sub>, so the separation does not care how wide the direct beam
+  is, whether the illumination is focused or parallel, or where the specimen sits along <code>dz</code>. That
+  makes it a <b>camera-length calibration</b>: photograph a known d-spacing, measure the distance between the
+  &plusmn;g spots, and <b>L&nbsp;=&nbsp;spacing&nbsp;/&nbsp;(2&thinsp;&theta;<sub>B</sub>)</b>. Mind the factor of
+  two at each end &mdash; &theta;<sub>B</sub> here is the <i>deflection</i> angle of the scattered beam,
+  &lambda;/d, which is twice the Bragg angle; and the direct beam to a single spot is half the number shown.</p>
+
+<h2>What the model leaves out</h2>
+
+<p>Ideal thin lenses only; no spherical or chromatic aberration, no space charge, no lens bore limits.
+  Positive focal lengths only, none stronger than 4&nbsp;mm (1.5&nbsp;mm for the objective). Element positions
+  are fixed. The aberration corrector and the quadrupole module that couples it into the objective are not
+  modelled &mdash; C3 to OL1 is a plain drift &mdash; and EL stands in, as a round lens, for the
+  quadrupole&ndash;octupole coupling module in front of the spectrometer.</p>
+</main>
+
+<footer>
+  Sean Kung &middot; <a href="mailto:sean.kung@ubc.ca">sean.kung@ubc.ca</a> &middot;
+  bundles Ray Optics Simulation 5.4
+</footer>
+
+</body>
+</html>
