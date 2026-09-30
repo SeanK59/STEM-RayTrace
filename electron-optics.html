@@ -1705,7 +1705,11 @@ function buildControls() {
   el$('bColl' ).addEventListener('click', () => { flash(collimateOnSample());   refresh(); });
   el$('bEels' ).addEventListener('click', () => { flash(matchEelsPlanes());     refresh(); });
   for (const btn of el$('couple').querySelectorAll('button'))
-    btn.addEventListener('click', () => { state.coupling = btn.dataset.mode; flash(null); refresh(); });
+    btn.addEventListener('click', () => { state.coupling = btn.dataset.mode; flash(null);
+      // the mode says WHICH plane the aperture is, so switching it re-matches the planes (Solve, at the current target)
+      const ck = analyse().chk;
+      if (planeState('EAP', ck.EAP).kind !== 'ok' || planeState('EFP', ck.EFP).kind !== 'ok') flash(matchEelsPlanes());
+      refresh(); });
   // --- horizontal zoom and pan ---
   el$('zSl'   ).addEventListener('input', ev => setZoom(tToZoom(+ev.target.value)));
   el$('zIn'   ).addEventListener('click', () => setZoom(view.zoom * 1.6));
@@ -2351,6 +2355,17 @@ function selftest() {
     chk('no-target: names the two-lens floor', /at least two free lenses/.test(nt1[1]) ? 1 : 0, 1, 0); }
   clearHolds(); restore();
 
+  // switching the coupling tab re-matches the planes, so the aperture really is the plane the mode names
+  { restore(); const tab = m => document.querySelector('#couple button[data-mode="' + m + '"]').click();
+    tab('img'); const ri = analyse();
+    chk('tab -> image-coupled: aperture is an image plane', ri.chk.EAP.image ? 1 : 0, 1, 0);
+    chk('... and the focal plane a diffraction plane', ri.chk.EFP.diff ? 1 : 0, 1, 0);
+    chk('... probe focused on the sample is a SPOT there (defocus at aperture, mm)', Math.abs(ri.chk.EAP.zImage - 1550) < 1e-6 ? 0 : 1, 0, 0);
+    tab('diff'); const rd = analyse();
+    chk('tab -> diffraction-coupled: aperture is a diffraction plane', rd.chk.EAP.diff ? 1 : 0, 1, 0);
+    chk('... at the target camera length (mm)', rd.camEAP, 28.2, 1e-6);
+    restore(); }
+
   /* ------------------------------------------------------------ E. controls, zoom, drawing */
   chk('slider: off maps to 0', sliderToPower(0), 0, 0);
   chk('slider: top is f_min = 4', 1 / sliderToPower(SLIDER_STEPS + 1), F_MIN, 1e-9);
@@ -2573,10 +2588,15 @@ function renderWave() {
   el$('wcap2').innerHTML = 'z ' + (+p.z2.toFixed(2)) + ' mm &middot; ' + kind +
     ' &middot; A ' + r.M.A.toPrecision(4) + ', B ' + r.M.B.toPrecision(4) + ' mm' +
     '<br>window ' + WV.fmtLen(N * o.du) + ', pixel ' + WV.fmtLen(o.du) + ' &middot; turned ' + rotDeg.toFixed(0) +
-    '&deg; by the lens fields (all lenses the same polarity)' + (o.flip ? ' &middot; inverted back upright' : '');
+    '&deg; by the lens fields (all lenses the same polarity; hatched = outside the computed window)' + (o.flip ? ' &middot; inverted back upright' : '');
   el$('wmore').innerHTML = 'render ' + Math.round(waveLast.ms) + ' ms &middot; ' +
     (o.branch === 'fourier' ? 'chirp &middot; FFT' : 'angular spectrum &times; A') + ' &middot; &lambda; ' +
     (p.lambda * 1e3).toFixed(3) + ' pm at ' + p.kV + ' kV';
+  const ck = analyse().chk;
+  if (planeState('EAP', ck.EAP).kind !== 'ok' || planeState('EFP', ck.EFP).kind !== 'ok')
+    el$('wmore').innerHTML += '<br><b style="color:#ffb74d">The EELS planes are not matched for ' +
+      (state.coupling === 'diff' ? 'diffraction' : 'image') + '-coupling: the aperture is ' +
+      (ck.EAP.diff ? 'a diffraction plane' : ck.EAP.image ? 'an image plane' : 'neither') + '. Press Solve.</b>';
 }
 function scheduleWave() {
   if (wavePending) return;

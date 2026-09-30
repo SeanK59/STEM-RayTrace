@@ -319,7 +319,10 @@ const WaveImages = (function () {
     if (opt.rot) {
       const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
       tmp.getContext('2d').putImageData(img, 0, 0);
-      g.fillStyle = '#000'; g.fillRect(0, 0, N, N);
+      // the turned square leaves corners nobody computed: hatch them so they cannot be mistaken for zero intensity
+      g.fillStyle = '#16161b'; g.fillRect(0, 0, N, N);
+      g.strokeStyle = '#2e2e38'; g.lineWidth = Math.max(1, N / 256);
+      for (let d = -N; d < N; d += Math.max(6, N / 42)) { g.beginPath(); g.moveTo(d, 0); g.lineTo(d + N, N); g.stroke(); }
       g.save(); g.translate(N / 2, N / 2); g.rotate(-opt.rot); g.drawImage(tmp, -N / 2, -N / 2); g.restore();
     } else g.putImageData(img, 0, 0);
     return g;
