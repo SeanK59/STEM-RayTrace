@@ -6,6 +6,9 @@ where the crossovers and diffraction planes land as you change the lens excitati
 
 **https://seankung.ca/STEM-RayTrace/**
 
+The page itself carries only a short "how to read it"; the usage notes and the optics behind the controls
+live in `help.html`, linked from the header and footer.
+
 Append `?selftest` to run the built-in assertions against the reference column.
 
 To run it offline, no build step and no npm -- serve the folder with anything static:
@@ -136,8 +139,22 @@ by the illumination solve, and PL1-PL4 plus EL, owned by the EELS solve. The obj
 only, so a pin there would mean nothing and it has none. A pinned lens is drawn with an accent border
 and a dimmed slider, so the pinned set reads at a glance.
 
+**Horizontal zoom** sits beside copy/save: `-`, a log slider, `+`, a readout, **reset** (back to the
+whole column) and **fit K**. It stretches the z axis only, from 1x to 2000x -- at the top of the range the
+window is 0.86 mm wide, so the 4 mm between OL1 and OL2 can be filled with beam -- and the radial
+exaggeration `K` is not touched; no plane, camera length or other reported number moves. A slim scroll bar
+under the figure, dragging the figure, sideways scroll and shift + wheel pan along the column, and Ctrl/Cmd
++ wheel (or a trackpad pinch) zooms about the cursor. Because the beam is only ~30 um across at the
+objective, **fit K** refits `K` to the beam inside the current window (by click only, never while
+panning). The canvases stay viewport-sized, so there is no huge bitmap at high zoom.
+
+Two details make this work with the ray engine, which has one scale for both axes and draws its line
+widths in scene units: the radial exaggeration rides in the engine's y units as `K / zoom`, so a y unit
+stays `K * sy` px tall however far z is stretched, and `lengthScale` is set to `1 / zoom` so rays stay
+~1 px thick instead of growing with the zoom.
+
 The **copy** and **save** buttons at the top-right of the figure export it as a PNG at **2x** the
-on-screen resolution (about 2100 x 1200 from a 1050 px stage). The controls are HTML layered over
+on-screen resolution (about 2100 x 1200 from a 1050 px stage), showing whatever window is on screen. The controls are HTML layered over
 the canvases, so they are never captured in the export. Copying needs a focused window -- if the
 browser refuses, the banner says so and save still works.
 
