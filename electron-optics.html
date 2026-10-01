@@ -137,7 +137,7 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
 .imgp h3{display:flex;align-items:center;gap:8px;justify-content:space-between;min-height:22px;margin:0 0 8px;
          font-size:12px;text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
 .imgp h3 select{text-transform:none;letter-spacing:0}
-.imgp canvas{display:block;width:100%;aspect-ratio:1/1;background:#000;border-radius:3px;image-rendering:pixelated}
+.imgp canvas{display:block;width:100%;aspect-ratio:1/1;background:#000;border-radius:3px}
 .cap{color:#8a8a8a;font-size:11.5px;margin-top:6px;min-height:34px;font-variant-numeric:tabular-nums}
 .ab{display:grid;grid-template-columns:44px 1fr 1fr;gap:5px 6px;align-items:center;font-size:12px}
 .ab .h{color:#7c7c7c;font-size:10.5px;text-align:center;letter-spacing:.3px}
@@ -2574,6 +2574,10 @@ const wave = {
   cmap: 'fire', dyn: 4, log1: true, log2: true, ovl: true, show1: 'probe',
 };
 let waveLast = null, wavePending = false;
+/** Canvas resolution for a picture shown at the canvas's current on-screen size (device pixels, capped), never below `floor`. */
+function canvasPx(cv, floor) {
+  return Math.min(2048, Math.max(floor, Math.round((cv.clientWidth || 0) * (window.devicePixelRatio || 1))));
+}
 const FOV_MAX_MM = 15;       // the downstream image is never wider than this
 
 /** Everything WaveImages.simulate needs, from the exact analysis and lens fields. */
@@ -2603,17 +2607,18 @@ function renderWave() {
   const r = WV.simulate(p);
   waveLast = { p: p, r: r, ms: performance.now() - t0, N2: 0 };
 
+  const M1 = canvasPx(el$('wv1'), N);
   // specimen plane
   const g1 = wave.show1 === 'phase' && r.phase
-    ? WV.paint(el$('wv1'), r.phase, N, { signed: true, cmap: 'gray' })
-    : WV.paint(el$('wv1'), r.I1, N, { log: wave.log1, dyn: wave.dyn, cmap: wave.cmap });
-  WV.scaleBar(g1, N, r.g.dx * 1e-6);
+    ? WV.paint(el$('wv1'), r.phase, N, { signed: true, cmap: 'gray', size: M1 })
+    : WV.paint(el$('wv1'), r.I1, N, { log: wave.log1, dyn: wave.dyn, cmap: wave.cmap, size: M1 });
+  WV.scaleBar(g1, M1, r.g.dx * 1e-6 * N / M1);
   if (r.outOfWindow) {
-    g1.fillStyle = 'rgba(0,0,0,.72)'; g1.fillRect(0, 0, N, N);
-    g1.fillStyle = '#ef9a9a'; g1.font = (15 * N / 512) + 'px ui-monospace,Consolas,monospace';
+    g1.fillStyle = 'rgba(0,0,0,.72)'; g1.fillRect(0, 0, M1, M1);
+    g1.fillStyle = '#ef9a9a'; g1.font = (15 * M1 / 512) + 'px ui-monospace,Consolas,monospace';
     g1.textAlign = 'center';
-    g1.fillText('probe larger than the window', N / 2, N / 2 - 10 * N / 512);
-    g1.fillText('(see caption)', N / 2, N / 2 + 14 * N / 512);
+    g1.fillText('probe larger than the window', M1 / 2, M1 / 2 - 10 * M1 / 512);
+    g1.fillText('(see caption)', M1 / 2, M1 / 2 + 14 * M1 / 512);
   }
   el$('wcap1').innerHTML = (p.collimated
       ? 'Parallel illumination &middot; illuminated radius ' + WV.fmtLen(p.spotR) + ', far wider than this window'
@@ -2640,9 +2645,9 @@ function renderWave() {
     for (let i = 0; i < N2; i++) for (let j = 0; j < N2; j++) I2[i * N2 + j] = o.I[(i + o0) * N + j + o0];
   }
   waveLast.N2 = N2;
-  // the picture is always drawn on at least 512 canvas pixels, so the scale bar, text and overlay stay sharp however
-  // few computed pixels the 15 mm crop leaves at a long camera length
-  const M2 = Math.max(512, N2), kZ = M2 / N2;
+  // the picture is drawn at the canvas's on-screen resolution (at least 512), so the scale bar, text and overlay are sharp
+  // however few computed pixels the 15 mm crop leaves at a long camera length
+  const M2 = canvasPx(el$('wv2'), 512), kZ = M2 / N2;
   const g2 = WV.paint(el$('wv2'), I2, N2, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot, size: M2 });
   WV.scaleBar(g2, M2, o.du / kZ);
   if (r.outOfWindow) {                      // the specimen wave did not fit the grid, so this plane is aliased, not physics
@@ -2695,6 +2700,7 @@ function renderWave() {
       (state.coupling === 'diff' ? 'diffraction' : 'image') + '-coupling: the aperture is ' +
       (ck.EAP.diff ? 'a diffraction plane' : ck.EAP.image ? 'an image plane' : 'neither') + '. Press Solve.</b>';
 }
+window.addEventListener('resize', () => { if (typeof scheduleWave === 'function') scheduleWave(); });
 function scheduleWave() {
   if (wavePending) return;
   wavePending = true;
