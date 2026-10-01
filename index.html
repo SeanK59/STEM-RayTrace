@@ -137,8 +137,7 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
 <body>
 
 <header>
-  <nav class="home-link"><a href="https://seankung.ca/">&larr; seankung.ca</a> &nbsp;&middot;&nbsp; <a href="help.html">help</a> &nbsp;&middot;&nbsp; <a href="electron-optics.html" title="The same column with real lens fields instead of thin lenses: curved trajectories, Larmor rotation, and electron wave images of the probe and the EELS aperture pattern.">electron optics &rarr;</a><span hidden> &nbsp;&middot;&nbsp;
-    <a id="waveLink" href="wave.html" title="The same column with electron-wave mechanics added: the probe on the specimen and the pattern at the EELS aperture. Opens with this page's lens settings, and follows them live while both are open.">wave-optics view &rarr;</a></span></nav>
+  <nav class="home-link"><a href="https://seankung.ca/">&larr; seankung.ca</a> &nbsp;&middot;&nbsp; <a href="help.html">help</a> &nbsp;&middot;&nbsp; <a href="electron-optics.html" title="The same column with real lens fields instead of thin lenses: curved trajectories, Larmor rotation, and electron wave images of the probe and the EELS aperture pattern.">electron optics &rarr;</a></nav>
   <h1>STEM Column Ray Trace</h1>
   <div class="sub">Ideal thin lenses, no aberrations &middot; drag the lens powers and watch the conjugate planes move</div>
 </header>
@@ -227,8 +226,7 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
 const RO = module.exports;
 
 /* ================================================================
-   1.  Column configuration.  COLUMN, the strength caps and transfer() live in column.js,
-       shared with the wave-optics page so the two can never disagree about the geometry.
+   1.  Column configuration.  COLUMN, the strength caps and transfer() live in column.js.
    ================================================================ */
 const BY_ID     = Object.fromEntries(COLUMN.map(e => [e.id, e]));
 const LENSES = COLUMN.filter(e => e.kind === 'lens');
@@ -1776,17 +1774,6 @@ function drawReadout(r) {
   el$('warn').textContent   = bad.join(' ');
 }
 
-/** Hand the column to the wave-optics page: in the link's hash, for a fresh tab, and over a
- *  BroadcastChannel so an open wave page follows every change live. Same encoder both ways
- *  (column.js), so the two pages cannot read the state differently. */
-const waveChan = ('BroadcastChannel' in window) ? new BroadcastChannel(STATE_CHANNEL) : null;
-function shareState(post = true) {
-  const h = encodeColumnState({ power: state.power, voaR: state.voaR, dz: state.sampleDz });
-  el$('waveLink').href = 'wave.html#' + h;
-  if (post && waveChan) try { waveChan.postMessage(h); } catch (e) { /* closed channel: nothing listens */ }
-  return h;
-}
-
 /** msg is null to clear, or [kind, text] with kind 'ok' | 'bad'. */
 function flash(msg) {
   const b = el$('banner');
@@ -1815,7 +1802,6 @@ function refresh() {
   syncInputs();
   layoutCanvasControls();
   syncView();
-  shareState();
   el$('legend').innerHTML =
     '<span style="color:var(--accent)">&#9644;</span> illumination crossover &nbsp; ' +
     '<span style="color:var(--diff)">&#9644;</span> diffraction plane &nbsp; ' +
@@ -1890,8 +1876,7 @@ function selftest() {
       [1 / state.power.OL1, 1 / state.power.OL2, BY_ID.OL1.z, BY_ID.OL2.z], [2, 2, 783, 787], 0);
   chk('VOA: 30 um diameter',     BY_ID.VOA.r,           0.015, 0);
 
-  // column.js's transfer() is what the wave page propagates with; it must agree with the tracer
-  // this page draws and solves with, element for element.
+  // column.js's transfer() must agree with the tracer this page draws and solves with, element for element.
   const tr = (z1, z2) => { const m = transfer(state.power, z1, z2);
                            return [m.A, m.B, traceFrom(z1, 1, 0, Z_MAX).at(z2).y,
                                           traceFrom(z1, 0, 1, Z_MAX).at(z2).y]; };
@@ -1900,8 +1885,7 @@ function selftest() {
     chk('transfer() = tracer, ' + z1 + '->' + z2, [t[0], t[1]], [t[2], t[3]], 1e-9);
   }
 
-  // column.js's illumination() is what the wave page reads alpha and focus from; it must be the
-  // same analysis as this page's, in every regime the wave page can be handed.
+  // column.js's illumination() must be the same analysis as this page's, in every regime.
   const illumAgrees = tag => {
     const ra = analyse(), il = illumination(state.power, state.voaR);
     chk('illumination() = analyse(), ' + tag + ': alpha', il.alpha, ra.alpha, 1e-12);
@@ -1914,14 +1898,7 @@ function selftest() {
   state.alpha = 0.1; applyIllumination(); illumAgrees('0.1 mrad, C1 on');
   state.alpha = 1; state.illumMode = 'collimate'; applyIllumination(); illumAgrees('parallel');
   restore();
-  // ...and the hand-off itself round-trips exactly, as the live link carries it
-  state.sampleDz = -0.35;
-  const hand = decodeColumnState(shareState(false));     // false: do not drive an open wave page
-  chk('hand-off: powers round-trip', LENSES.map(e => hand.power[e.id]), LENSES.map(e => state.power[e.id]), 0);
-  chk('hand-off: dz and VOA round-trip', [hand.dz, hand.voaR], [-0.35, BY_ID.VOA.r], 0);
-  chk('hand-off: link carries it', el$('waveLink').href.split('#')[1] === shareState(false) ? 1 : 0, 1, 0);
-  chk('hand-off: garbage decodes to null', decodeColumnState('#not-a-state') === null ? 1 : 0, 1, 0);
-  restore(); shareState(false);
+  restore();
 
   // radial exaggeration must not move a single reported plane
   const kSave = state.K, before = JSON.stringify([r.imagePlanes, r.diffPlanes]);

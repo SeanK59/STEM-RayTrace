@@ -1,8 +1,8 @@
 /* ================================================================
    STEM column -- the single source of truth for both pages.
 
-   index.html (the ray trace) and wave.html (the wave-optics view) load this file, so
-   the two can never disagree about where an element sits or how strong a lens may be.
+   index.html (the ray trace) loads this file. (The electron optics page keeps its own copy of the element
+   positions in electron-column.js.)
    z in mm from the source crossover. f in mm. Ideal thin lenses throughout.
    ================================================================ */
 "use strict";
@@ -97,29 +97,4 @@ function illumination(power, voaR) {
   const alpha = (collimated && pOL2 > 0) ? Math.abs(y) * u0max * pOL2 : Math.abs(u) * u0max;
   return { u0max: u0max, alpha: alpha, collimated: collimated, spotR: Math.abs(y) * u0max,
            zFocus: u !== 0 ? COLUMN_Z_REF - y / u : Infinity };
-}
-
-/** The ray page hands its state to the wave page in the URL hash, and over a BroadcastChannel
- *  while both are open. One encoder and one decoder, here, so the two ends cannot disagree.
- *  state: { power: {id: 1/f}, voaR (mm), dz (mm) }. */
-const STATE_CHANNEL = 'stem-raytrace-state';
-function encodeColumnState(s) {
-  const p = {};
-  for (const e of COLUMN) if (e.kind === 'lens') p[e.id] = s.power[e.id] || 0;
-  return encodeURIComponent(JSON.stringify({ v: 1, p: p, voa: s.voaR, dz: s.dz || 0 }));
-}
-function decodeColumnState(txt) {
-  try {
-    const o = JSON.parse(decodeURIComponent(String(txt).replace(/^#/, '')));
-    if (!o || o.v !== 1 || typeof o.p !== 'object') return null;
-    const power = {};
-    for (const e of COLUMN) if (e.kind === 'lens') {
-      const v = +o.p[e.id];
-      if (!(isFinite(v) && v >= 0)) return null;
-      power[e.id] = v;
-    }
-    const voaR = +o.voa, dz = +o.dz;
-    if (!(voaR > 0) || !isFinite(dz)) return null;
-    return { power: power, voaR: voaR, dz: Math.max(-1, Math.min(1, dz)) };
-  } catch (e) { return null; }
 }

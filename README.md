@@ -21,7 +21,7 @@ python -m http.server 8123 --directory .
 
 Element positions are **measured off the microscope** and fixed; focal lengths are freely
 adjustable (positive only). `z` is measured in mm from the source crossover. The table lives in
-`column.js`, the one file both pages of this repo load.
+`column.js`. (The electron optics page keeps its own copy of the same positions in `electron-column.js`.)
 
 | Element | z (mm) | default f (mm) |
 |---|---:|---:|
