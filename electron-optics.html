@@ -262,8 +262,8 @@ details.panel[open] > summary{margin-bottom:10px}
       <div class="row w"><label>colour</label>
         <select id="wcmap"><option value="fire">fire</option><option value="gray">grey</option></select></div>
       <div class="row w"><label>log decades</label><input type="number" id="wdyn" step="0.5" min="1" max="8" value="4"></div>
-      <label class="chk"><input type="checkbox" id="wlog1"> log scale, specimen</label>
-      <label class="chk"><input type="checkbox" id="wlog2"> log scale, downstream plane</label>
+      <label class="chk"><input type="checkbox" id="wlog1" checked> log scale, specimen</label>
+      <label class="chk"><input type="checkbox" id="wlog2" checked> log scale, downstream plane</label>
       <label class="chk"><input type="checkbox" id="wovl" checked> beam edge and Bragg positions from the ray trace</label>
     </details>
 
@@ -2528,9 +2528,9 @@ function selftest() {
       chk('... and the table shows it', +el$('ab_' + k + '_b').value, WVs.NION_RESIDUALS[k][0], 0);
     }
     chk('Nion residuals: 2 / 20 / 200 nm', [WVs.NION_RESIDUALS.C12[0], WVs.NION_RESIDUALS.C21[0], WVs.NION_RESIDUALS.C30[0]], [2, 20, 200], 0);
-    chk('log scale off by default: specimen', wave.log1 ? 1 : 0, 0, 0);
-    chk('log scale off by default: downstream', wave.log2 ? 1 : 0, 0, 0);
-    chk('... and both checkboxes are clear', (el$('wlog1').checked ? 1 : 0) + (el$('wlog2').checked ? 1 : 0), 0, 0);
+    chk('log scale on by default: specimen', wave.log1 ? 1 : 0, 1, 0);
+    chk('log scale on by default: downstream', wave.log2 ? 1 : 0, 1, 0);
+    chk('... and both checkboxes are ticked', (el$('wlog1').checked ? 1 : 0) + (el$('wlog2').checked ? 1 : 0), 2, 0);
     restore(); refresh(); renderWave();
     chk('default aperture image: whole window, not cropped (pixels)', waveLast.N2, wave.N, 0);
     chk('... 3.5 mm wide (mm)', waveLast.r.out.du * waveLast.N2, 3.496, 0.01);
@@ -2571,7 +2571,7 @@ const wave = {
   aberr: JSON.parse(JSON.stringify(WV.NION_RESIDUALS)),
   spec: { type: 'lattice', dA: 3.1355, sigma: 0.5, ellNm: 0.25 },
   N: 512, S: 1.5, plane2: 'EAP', z2: 1100,
-  cmap: 'fire', dyn: 4, log1: false, log2: false, ovl: true, show1: 'probe',
+  cmap: 'fire', dyn: 4, log1: true, log2: true, ovl: true, show1: 'probe',
 };
 let waveLast = null, wavePending = false;
 const FOV_MAX_MM = 15;       // the downstream image is never wider than this
