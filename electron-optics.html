@@ -263,7 +263,7 @@ details.panel[open] > summary{margin-bottom:10px}
         <select id="wcmap"><option value="fire">fire</option><option value="gray">grey</option></select></div>
       <div class="row w"><label>log decades</label><input type="number" id="wdyn" step="0.5" min="1" max="8" value="4"></div>
       <label class="chk"><input type="checkbox" id="wlog1"> log scale, specimen</label>
-      <label class="chk"><input type="checkbox" id="wlog2" checked> log scale, downstream plane</label>
+      <label class="chk"><input type="checkbox" id="wlog2"> log scale, downstream plane</label>
       <label class="chk"><input type="checkbox" id="wovl" checked> beam edge and Bragg positions from the ray trace</label>
     </details>
 
@@ -2521,6 +2521,27 @@ function selftest() {
     restore();
   }
 
+  /* ------------------------------------------------------------ H. wave-image defaults and the field-of-view cap */
+  { const WVs = WaveImages;
+    for (const k of ['C12', 'C21', 'C23', 'C32', 'C34']) {
+      chk('Nion residuals ' + k + ': b = a', WVs.NION_RESIDUALS[k][1], WVs.NION_RESIDUALS[k][0], 0);
+      chk('... and the table shows it', +el$('ab_' + k + '_b').value, WVs.NION_RESIDUALS[k][0], 0);
+    }
+    chk('Nion residuals: 2 / 20 / 200 nm', [WVs.NION_RESIDUALS.C12[0], WVs.NION_RESIDUALS.C21[0], WVs.NION_RESIDUALS.C30[0]], [2, 20, 200], 0);
+    chk('log scale off by default: specimen', wave.log1 ? 1 : 0, 0, 0);
+    chk('log scale off by default: downstream', wave.log2 ? 1 : 0, 0, 0);
+    chk('... and both checkboxes are clear', (el$('wlog1').checked ? 1 : 0) + (el$('wlog2').checked ? 1 : 0), 0, 0);
+    restore(); refresh(); renderWave();
+    chk('default aperture image: whole window, not cropped (pixels)', el$('wv2').width, wave.N, 0);
+    chk('... 3.5 mm wide (mm)', waveLast.r.out.du * el$('wv2').width, 3.496, 0.01);
+    restore(); state.coupling = 'diff'; state.targetL = 100; state.alpha = 40; matchEelsPlanes(); focusProbeOnSample(); refresh(); renderWave();
+    const du = waveLast.r.out.du, W2 = el$('wv2').width * du;
+    chk('L = 100 mm, alpha = 40 mrad: the computed window is wider than 15 mm', du * wave.N > 15 ? 1 : 0, 1, 0);
+    chk('... but the image shown is not', W2 <= 15 ? 1 : 0, 1, 0);
+    chk('... it is the central 15 mm to within a pixel (mm)', W2, 15, 2 * du);
+    restore(); refresh(); renderWave();
+  }
+
   restore();
   const txt = out.join('\n');
   console.log(txt);
@@ -2547,9 +2568,10 @@ const wave = {
   aberr: JSON.parse(JSON.stringify(WV.NION_RESIDUALS)),
   spec: { type: 'lattice', dA: 3.1355, sigma: 0.5, ellNm: 0.25 },
   N: 512, S: 1.5, plane2: 'EAP', z2: 1100,
-  cmap: 'fire', dyn: 4, log1: false, log2: true, ovl: true, show1: 'probe',
+  cmap: 'fire', dyn: 4, log1: false, log2: false, ovl: true, show1: 'probe',
 };
 let waveLast = null, wavePending = false;
+const FOV_MAX_MM = 15;       // the downstream image is never wider than this
 
 /** Everything WaveImages.simulate needs, from the exact analysis and lens fields. */
 function waveParams(r) {
@@ -2605,13 +2627,22 @@ function renderWave() {
 
   // downstream plane, turned by the Larmor rotation
   const o = r.out;
-  const g2 = WV.paint(el$('wv2'), o.I, N, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot });
-  WV.scaleBar(g2, N, o.du);
+  // The window of a diffraction-like plane is about 2 |B| (alpha + Bragg) S and grows with camera length and angle, so only the
+  // central FOV_MAX_MM x FOV_MAX_MM of it is shown (centred, so the flip and the Larmor turn still act about the middle).
+  const N2 = Math.max(2, Math.min(N, 2 * Math.floor(FOV_MAX_MM / o.du / 2)));
+  let I2 = o.I;
+  if (N2 < N) {
+    I2 = new Float64Array(N2 * N2);
+    const o0 = (N - N2) / 2;
+    for (let i = 0; i < N2; i++) for (let j = 0; j < N2; j++) I2[i * N2 + j] = o.I[(i + o0) * N + j + o0];
+  }
+  const g2 = WV.paint(el$('wv2'), I2, N2, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot });
+  WV.scaleBar(g2, N2, o.du);
   if (r.outOfWindow) {                      // the specimen wave did not fit the grid, so this plane is aliased, not physics
-    g2.fillStyle = 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, N, N);
-    g2.fillStyle = '#ef9a9a'; g2.font = (15 * N / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
-    g2.fillText('not reliable: probe larger than', N / 2, N / 2 - 10 * N / 512);
-    g2.fillText('the specimen window (see left)', N / 2, N / 2 + 14 * N / 512);
+    g2.fillStyle = 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, N2, N2);
+    g2.fillStyle = '#ef9a9a'; g2.font = (15 * N2 / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
+    g2.fillText('not reliable: probe larger than', N2 / 2, N2 / 2 - 10 * N2 / 512);
+    g2.fillText('the specimen window (see left)', N2 / 2, N2 / 2 + 14 * N2 / 512);
   }
   const L = Math.abs(r.M.B);
   const theta = p.spec.type === 'lattice' ? p.lambda / (p.spec.dA / 10) : NaN;
@@ -2619,16 +2650,16 @@ function renderWave() {
   // and this plane at alpha |A dz_past + B| (|B| alpha at a diffraction plane, the aperture radius L alpha)
   const edge = r.defocused ? p.alpha * Math.abs(p.Mc.B) : p.alpha * Math.abs(r.M.A * p.defocusNm * 1e-6 + r.M.B);
   if (wave.ovl && !r.outOfWindow) {
-    const c = N / 2, px = mm => mm / o.du;
+    const c = N2 / 2, px = mm => mm / o.du;
     g2.save(); g2.translate(c, c); g2.rotate(-p.rot);            // the overlay turns with the picture
-    g2.setLineDash([5 * N / 512, 5 * N / 512]); g2.lineWidth = 1.2 * N / 512;
+    g2.setLineDash([5 * N2 / 512, 5 * N2 / 512]); g2.lineWidth = 1.2 * N2 / 512;
     if (!p.collimated) {
       g2.strokeStyle = 'rgba(128,203,196,.8)';
       g2.beginPath(); g2.arc(0, 0, px(edge), 0, 2 * Math.PI); g2.stroke();
     }
     if (isFinite(theta) && o.branch === 'fourier') {
       g2.strokeStyle = 'rgba(255,183,77,.85)';
-      const rr = 6 * N / 512, sgn = o.flip ? -1 : 1;
+      const rr = 6 * N2 / 512, sgn = o.flip ? -1 : 1;
       for (const [sx_, sy_] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const x = sx_ * px(L * theta), y = -sy_ * px(L * theta);
         g2.beginPath(); g2.moveTo(x - rr, y); g2.lineTo(x + rr, y); g2.moveTo(x, y - rr); g2.lineTo(x, y + rr); g2.stroke();
@@ -2642,7 +2673,7 @@ function renderWave() {
   const rotDeg = ((p.rot * 180 / Math.PI) % 360 + 360) % 360;
   el$('wcap2').innerHTML = 'z ' + (+p.z2.toFixed(2)) + ' mm &middot; ' + kind +
     ' &middot; A ' + r.M.A.toPrecision(4) + ', B ' + r.M.B.toPrecision(4) + ' mm' +
-    '<br>window ' + WV.fmtLen(N * o.du) + ', pixel ' + WV.fmtLen(o.du) + ' &middot; turned ' + rotDeg.toFixed(0) +
+    '<br>window ' + WV.fmtLen(N2 * o.du) + (N2 < N ? ' (cropped to ' + FOV_MAX_MM + ' mm)' : '') + ', pixel ' + WV.fmtLen(o.du) + ' &middot; turned ' + rotDeg.toFixed(0) +
     '&deg; by the lens fields (all lenses the same polarity; hatched = outside the computed window)' + (o.flip ? ' &middot; inverted back upright' : '');
   const bragg = r.defocused
     ? '<br>Specimen off the crossover: the pattern is ' + r.nBeams + ' Bragg beams, each a copy of the focused probe\'s ' +

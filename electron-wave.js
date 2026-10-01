@@ -32,8 +32,10 @@ const WaveImages = (function () {
     { k: 'C21', n: 2, m: 1 }, { k: 'C23', n: 2, m: 3 },
     { k: 'C30', n: 3, m: 0 }, { k: 'C32', n: 3, m: 2 }, { k: 'C34', n: 3, m: 4 },
   ];
-  const NION_RESIDUALS = { C10: [0, 0], C12: [2, 0], C21: [20, 0], C23: [20, 0],
-                           C30: [200, 0], C32: [200, 0], C34: [200, 0] };
+  // a tuned corrector leaves ~2 nm first order, ~20 nm second, ~200 nm third, in both components (a and b) of each
+  // non-axial term; C10 and C30 are axial and have no b
+  const NION_RESIDUALS = { C10: [0, 0], C12: [2, 2], C21: [20, 20], C23: [20, 20],
+                           C30: [200, 0], C32: [200, 200], C34: [200, 200] };
 
   /* ------------------------------------------------------------ FFT: iterative radix-2, in place */
   const _plans = {};
