@@ -2532,13 +2532,16 @@ function selftest() {
     chk('log scale off by default: downstream', wave.log2 ? 1 : 0, 0, 0);
     chk('... and both checkboxes are clear', (el$('wlog1').checked ? 1 : 0) + (el$('wlog2').checked ? 1 : 0), 0, 0);
     restore(); refresh(); renderWave();
-    chk('default aperture image: whole window, not cropped (pixels)', el$('wv2').width, wave.N, 0);
-    chk('... 3.5 mm wide (mm)', waveLast.r.out.du * el$('wv2').width, 3.496, 0.01);
+    chk('default aperture image: whole window, not cropped (pixels)', waveLast.N2, wave.N, 0);
+    chk('... 3.5 mm wide (mm)', waveLast.r.out.du * waveLast.N2, 3.496, 0.01);
     restore(); state.coupling = 'diff'; state.targetL = 100; state.alpha = 40; matchEelsPlanes(); focusProbeOnSample(); refresh(); renderWave();
-    const du = waveLast.r.out.du, W2 = el$('wv2').width * du;
+    const du = waveLast.r.out.du, W2 = waveLast.N2 * du;
     chk('L = 100 mm, alpha = 40 mrad: the computed window is wider than 15 mm', du * wave.N > 15 ? 1 : 0, 1, 0);
     chk('... but the image shown is not', W2 <= 15 ? 1 : 0, 1, 0);
     chk('... it is the central 15 mm to within a pixel (mm)', W2, 15, 2 * du);
+    chk('... and it is drawn on at least 512 canvas pixels, so the scale bar stays sharp', el$('wv2').width >= 512 ? 1 : 0, 1, 0);
+    { const cv = el$('wv2'), px = cv.getContext('2d').getImageData(cv.width / 2, cv.height / 2, 1, 1).data;
+      chk('... and the cropped picture is really drawn (the centre of the unscattered disc is bright)', px[0] > 100 ? 1 : 0, 1, 0); }
     restore(); refresh(); renderWave();
   }
 
@@ -2598,7 +2601,7 @@ function renderWave() {
   const p = waveParams(), N = p.N;
   const t0 = performance.now();
   const r = WV.simulate(p);
-  waveLast = { p: p, r: r, ms: performance.now() - t0 };
+  waveLast = { p: p, r: r, ms: performance.now() - t0, N2: 0 };
 
   // specimen plane
   const g1 = wave.show1 === 'phase' && r.phase
@@ -2636,13 +2639,17 @@ function renderWave() {
     const o0 = (N - N2) / 2;
     for (let i = 0; i < N2; i++) for (let j = 0; j < N2; j++) I2[i * N2 + j] = o.I[(i + o0) * N + j + o0];
   }
-  const g2 = WV.paint(el$('wv2'), I2, N2, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot });
-  WV.scaleBar(g2, N2, o.du);
+  waveLast.N2 = N2;
+  // the picture is always drawn on at least 512 canvas pixels, so the scale bar, text and overlay stay sharp however
+  // few computed pixels the 15 mm crop leaves at a long camera length
+  const M2 = Math.max(512, N2), kZ = M2 / N2;
+  const g2 = WV.paint(el$('wv2'), I2, N2, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot, size: M2 });
+  WV.scaleBar(g2, M2, o.du / kZ);
   if (r.outOfWindow) {                      // the specimen wave did not fit the grid, so this plane is aliased, not physics
-    g2.fillStyle = 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, N2, N2);
-    g2.fillStyle = '#ef9a9a'; g2.font = (15 * N2 / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
-    g2.fillText('not reliable: probe larger than', N2 / 2, N2 / 2 - 10 * N2 / 512);
-    g2.fillText('the specimen window (see left)', N2 / 2, N2 / 2 + 14 * N2 / 512);
+    g2.fillStyle = 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, M2, M2);
+    g2.fillStyle = '#ef9a9a'; g2.font = (15 * M2 / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
+    g2.fillText('not reliable: probe larger than', M2 / 2, M2 / 2 - 10 * M2 / 512);
+    g2.fillText('the specimen window (see left)', M2 / 2, M2 / 2 + 14 * M2 / 512);
   }
   const L = Math.abs(r.M.B);
   const theta = p.spec.type === 'lattice' ? p.lambda / (p.spec.dA / 10) : NaN;
@@ -2650,16 +2657,16 @@ function renderWave() {
   // and this plane at alpha |A dz_past + B| (|B| alpha at a diffraction plane, the aperture radius L alpha)
   const edge = r.defocused ? p.alpha * Math.abs(p.Mc.B) : p.alpha * Math.abs(r.M.A * p.defocusNm * 1e-6 + r.M.B);
   if (wave.ovl && !r.outOfWindow) {
-    const c = N2 / 2, px = mm => mm / o.du;
+    const c = M2 / 2, px = mm => mm / o.du * kZ;
     g2.save(); g2.translate(c, c); g2.rotate(-p.rot);            // the overlay turns with the picture
-    g2.setLineDash([5 * N2 / 512, 5 * N2 / 512]); g2.lineWidth = 1.2 * N2 / 512;
+    g2.setLineDash([5 * M2 / 512, 5 * M2 / 512]); g2.lineWidth = 1.2 * M2 / 512;
     if (!p.collimated) {
       g2.strokeStyle = 'rgba(128,203,196,.8)';
       g2.beginPath(); g2.arc(0, 0, px(edge), 0, 2 * Math.PI); g2.stroke();
     }
     if (isFinite(theta) && o.branch === 'fourier') {
       g2.strokeStyle = 'rgba(255,183,77,.85)';
-      const rr = 6 * N2 / 512, sgn = o.flip ? -1 : 1;
+      const rr = 6 * M2 / 512, sgn = o.flip ? -1 : 1;
       for (const [sx_, sy_] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const x = sx_ * px(L * theta), y = -sy_ * px(L * theta);
         g2.beginPath(); g2.moveTo(x - rr, y); g2.lineTo(x + rr, y); g2.moveTo(x, y - rr); g2.lineTo(x, y + rr); g2.stroke();

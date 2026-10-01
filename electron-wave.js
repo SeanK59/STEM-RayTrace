@@ -501,7 +501,8 @@ const WaveImages = (function () {
   /** Paint an N x N intensity onto a canvas. opt: log/dyn (log scale over `dyn` decades), signed, cmap, flip (an
    *  inverted plane is mirrored back upright), rot (radians; the picture is turned by this about its centre). */
   function paint(cv, I, N, opt) {
-    cv.width = N; cv.height = N;
+    const M = opt.size || N;                    // canvas pixels: the data are N x N, stretched smoothly to M x M
+    cv.width = M; cv.height = M;
     const g = cv.getContext('2d'), img = g.createImageData(N, N);
     let mx = 0, mn = Infinity;
     for (let k = 0; k < I.length; k++) { if (I[k] > mx) mx = I[k]; if (I[k] < mn) mn = I[k]; }
@@ -517,14 +518,19 @@ const WaveImages = (function () {
         const c = lut(opt.cmap, t), o = (i * N + j) * 4;
         img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
       }
-    if (opt.rot) {
+    if (opt.rot || M !== N) {
       const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
       tmp.getContext('2d').putImageData(img, 0, 0);
-      // the turned square leaves corners nobody computed: hatch them so they cannot be mistaken for zero intensity
-      g.fillStyle = '#16161b'; g.fillRect(0, 0, N, N);
-      g.strokeStyle = '#2e2e38'; g.lineWidth = Math.max(1, N / 256);
-      for (let d = -N; d < N; d += Math.max(6, N / 42)) { g.beginPath(); g.moveTo(d, 0); g.lineTo(d + N, N); g.stroke(); }
-      g.save(); g.translate(N / 2, N / 2); g.rotate(-opt.rot); g.drawImage(tmp, -N / 2, -N / 2); g.restore();
+      g.fillStyle = '#000'; g.fillRect(0, 0, M, M);
+      if (opt.rot) {
+        // the turned square leaves corners nobody computed: hatch them so they cannot be mistaken for zero intensity
+        g.fillStyle = '#16161b'; g.fillRect(0, 0, M, M);
+        g.strokeStyle = '#2e2e38'; g.lineWidth = Math.max(1, M / 256);
+        for (let d = -M; d < M; d += Math.max(6, M / 42)) { g.beginPath(); g.moveTo(d, 0); g.lineTo(d + M, M); g.stroke(); }
+      }
+      g.save(); g.translate(M / 2, M / 2); g.rotate(-(opt.rot || 0));
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+      g.drawImage(tmp, -M / 2, -M / 2, M, M); g.restore();
     } else g.putImageData(img, 0, 0);
     return g;
   }
