@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STEM Column Electron Optics</title>
+<script>try{var t=localStorage.getItem('seankung-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <style>
 :root{
   --bg:#121212; --panel:#1e1e1e; --accent:#80cbc4; --fg:#e0e0e0; --dim:#9e9e9e;
@@ -70,9 +71,9 @@ header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
 #zoomctl button.sq{padding:2px 0;width:20px;text-align:center}
 /* The scroll bar is custom because a native one would give a 1 px thumb at 1000x. Its thumb keeps
    a minimum width so it stays grabbable, and the whole bar goes inert at 1x. */
-#panbar{position:relative;height:12px;margin-top:5px;background:#161616;border:1px solid var(--line);
+#panbar{position:relative;height:12px;margin-top:5px;background:var(--pan-bg);border:1px solid var(--line);
         border-radius:6px;cursor:pointer;touch-action:none}
-#panthumb{position:absolute;top:1px;bottom:1px;left:0;width:30px;border-radius:5px;background:#2a3a38;
+#panthumb{position:absolute;top:1px;bottom:1px;left:0;width:30px;border-radius:5px;background:var(--on-bg);
           border:1px solid var(--accent);cursor:grab;touch-action:none}
 #panbar.off{opacity:.3;pointer-events:none}
 .stage.pannable canvas{cursor:grab}
@@ -82,7 +83,7 @@ header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
 .readpanel{margin-top:12px}
 #readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:6px 22px}
 .rgroup h3{margin:0 0 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;
-           color:#7c7c7c;font-weight:600}
+           color:var(--muted2);font-weight:600}
 .rgroup table{margin-bottom:4px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
 .panel + .panel{margin-top:12px}
@@ -91,32 +92,32 @@ header .sub{color:var(--dim);font-size:12.5px;margin-top:2px}
 /* the camera-length row carries a checkbox that decides whether its value is an input at all */
 .row.hastgt{grid-template-columns:13px 46px 1fr 76px;gap:6px}
 .row.hastgt input[type=checkbox]{margin:0;accent-color:var(--accent);cursor:pointer}
-.row.notgt label,.row.notgt input[type=number]{color:#7c7c7c}
+.row.notgt label,.row.notgt input[type=number]{color:var(--muted2)}
 .row.notgt input[type=range]{accent-color:#5a5a5a;opacity:.5}
 .row label{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
 .row.on label{color:var(--fg)}
 .row.cap{margin-bottom:6px}
-.row.cap span{color:#7c7c7c;font-size:10.5px;text-align:center;letter-spacing:.3px}
-.row .unit{color:#7c7c7c;font-size:11px;grid-column:2/4;text-align:right;margin:-3px 0 4px}
+.row.cap span{color:var(--muted2);font-size:10.5px;text-align:center;letter-spacing:.3px}
+.row .unit{color:var(--muted2);font-size:11px;grid-column:2/4;text-align:right;margin:-3px 0 4px}
 .panel h2 .phys{float:right;color:var(--ok);letter-spacing:.4px;text-transform:none;font-size:10.5px}
-.panel h2 .cosm{float:right;color:#7c7c7c;letter-spacing:.4px;text-transform:none;font-size:10.5px}
-.hint{color:#7c7c7c;font-size:11.5px;margin-top:2px}
+.panel h2 .cosm{float:right;color:var(--muted2);letter-spacing:.4px;text-transform:none;font-size:10.5px}
+.hint{color:var(--muted2);font-size:11.5px;margin-top:2px}
 button .sub{color:var(--dim);font-size:11px;display:block;margin-top:1px}
 .panel hr{border:0;border-top:1px solid var(--line);margin:9px 0 7px}
 .seg{display:flex;margin-bottom:7px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .seg button{margin:0;border:0;border-radius:0;text-align:center;font-size:11.5px;padding:5px 4px;
-            background:#191919;color:var(--dim)}
+            background:var(--seg-bg);color:var(--dim)}
 .seg button + button{border-left:1px solid var(--line)}
-.seg button.on{background:#2a3a38;color:var(--accent)}
+.seg button.on{background:var(--on-bg);color:var(--accent)}
 input[type=range]{width:100%;accent-color:var(--accent);height:16px;margin:0}
-input[type=number]{width:100%;background:#151515;color:var(--fg);border:1px solid var(--line);
+input[type=number]{width:100%;background:var(--in-bg);color:var(--fg);border:1px solid var(--line);
                    border-radius:3px;padding:2px 4px;font:12px/1.3 ui-monospace,Consolas,monospace}
 input[type=number]:focus{outline:1px solid var(--accent);border-color:var(--accent)}
 .off input[type=number]{color:var(--dim)}
-button{background:#252525;color:var(--fg);border:1px solid var(--line);border-radius:4px;
+button{background:var(--btn-bg);color:var(--fg);border:1px solid var(--line);border-radius:4px;
        padding:6px 9px;font-size:12.5px;cursor:pointer;width:100%;margin-bottom:6px;text-align:left}
 button:hover{border-color:var(--accent);color:var(--accent)}
-button:active{background:#2e2e2e}
+button:active{background:var(--btn-active)}
 .chk{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:var(--dim);font-size:12.5px;cursor:pointer}
 .chk input{accent-color:var(--accent);margin:0}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -127,7 +128,7 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
 .note{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.5}
 .notes{margin:16px 20px 28px;padding-top:12px;border-top:1px solid var(--line);
        color:var(--dim);font-size:12.5px;max-width:1100px}
-.notes code{background:#1c1c1c;padding:1px 4px;border-radius:3px;font-size:12px}
+.notes code{background:var(--code-bg);padding:1px 4px;border-radius:3px;font-size:12px}
 .notes a{color:var(--accent)}
 #banner{display:none;margin:0 20px 8px;padding:8px 12px;border-radius:5px;
         font-family:ui-monospace,Consolas,monospace;font-size:12.5px;white-space:pre-wrap}
@@ -138,23 +139,31 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
          font-size:12px;text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
 .imgp h3 select{text-transform:none;letter-spacing:0}
 .imgp canvas{display:block;width:100%;aspect-ratio:1/1;background:#000;border-radius:3px}
-.cap{color:#8a8a8a;font-size:11.5px;margin-top:6px;min-height:34px;font-variant-numeric:tabular-nums}
+.cap{color:var(--muted3);font-size:11.5px;margin-top:6px;min-height:34px;font-variant-numeric:tabular-nums}
 .ab{display:grid;grid-template-columns:44px 1fr 1fr;gap:5px 6px;align-items:center;font-size:12px}
-.ab .h{color:#7c7c7c;font-size:10.5px;text-align:center;letter-spacing:.3px}
+.ab .h{color:var(--muted2);font-size:10.5px;text-align:center;letter-spacing:.3px}
 .ab label{color:var(--dim);font-family:ui-monospace,Consolas,monospace}
-select{width:100%;background:#151515;color:var(--fg);border:1px solid var(--line);border-radius:3px;
+select{width:100%;background:var(--in-bg);color:var(--fg);border:1px solid var(--line);border-radius:3px;
        padding:2px 4px;font:12px/1.3 ui-monospace,Consolas,monospace}
 select:focus{outline:1px solid var(--accent);border-color:var(--accent)}
-input[type=number]:disabled{color:#555}
+input[type=number]:disabled{color:var(--m3)}
 details.panel > summary{cursor:pointer;color:var(--accent);font-size:12px;text-transform:uppercase;
                         letter-spacing:.9px;font-weight:600;list-style:none}
 details.panel > summary::-webkit-details-marker{display:none}
 details.panel[open] > summary{margin-bottom:10px}
 .row.w{grid-template-columns:78px 1fr}
 .bad{color:var(--bad)}
+:root{color-scheme:dark}
+:root{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333;--ok:#a5d6a7;--bad:#ef9a9a;--diff:#ffb74d;--muted2:#7c7c7c;--in-bg:#151515;--btn-bg:#252525;--btn-active:#2e2e2e;--seg-bg:#191919;--on-bg:#2a3a38;--code-bg:#1c1c1c;--pan-bg:#161616;--muted3:#8a8a8a;--m3:#555;--vio:#ce93d8;--m6:#6b6b6b;--lens-col:#a0bee6;--ap-col:#cfcfcf;--lbl-col:#6f6f6f}
+:root[data-theme="light"]{color-scheme:light;--bg:#f4f6f7;--panel:#ffffff;--accent:#00796b;--fg:#1b1f23;--dim:#66727d;--line:#d0d5da;--ok:#1a7f37;--bad:#cf222e;--diff:#bc4c00;--muted2:#6a737c;--in-bg:#ffffff;--btn-bg:#eef1f3;--btn-active:#e2e6e9;--seg-bg:#eef1f3;--on-bg:#d8efec;--code-bg:#e8ecef;--pan-bg:#e6eaed;--muted3:#66727d;--m3:#9aa3ab;--vio:#8250df;--m6:#8b949e;--lens-col:#3f6fb0;--ap-col:#6b747d;--lbl-col:#8b949e}
+.stage{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333;--ok:#a5d6a7;--bad:#ef9a9a;--diff:#ffb74d;--muted2:#7c7c7c;--in-bg:#151515;--btn-bg:#252525;--btn-active:#2e2e2e;--seg-bg:#191919;--on-bg:#2a3a38;--code-bg:#1c1c1c;--pan-bg:#161616;--muted3:#8a8a8a;--m3:#555}
+.theme-toggle{position:absolute;top:10px;right:14px;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;font-size:16px;line-height:1;z-index:50}
+.theme-toggle:hover{border-color:var(--accent)}
+.home-link{padding-right:46px}   /* keep the nav line clear of the theme button */
 </style>
 </head>
 <body>
+<button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch theme"></button>
 
 <header>
   <nav class="home-link"><a href="https://seankung.ca/">&larr; seankung.ca</a> &nbsp;&middot;&nbsp; <a href="electron-help.html">help</a> &nbsp;&middot;&nbsp; <a href="./">thin-lens ray trace</a></nav>
@@ -234,7 +243,7 @@ details.panel[open] > summary{margin-bottom:10px}
         ><button type="button" data-mode="img">image-coupled</button>
       </div>
       <div id="camrow"></div>
-      <label class="chk"><input type="checkbox" id="cbHoldEL" checked> Hold EL fixed <span style="color:#7c7c7c">&middot; same pin as EL's box on the figure</span></label>
+      <label class="chk"><input type="checkbox" id="cbHoldEL" checked> Hold EL fixed <span style="color:var(--muted2)">&middot; same pin as EL's box on the figure</span></label>
       <button id="bEels">Solve <span class="sub" id="eelsSub"></span></button>
       <hr>
       <button id="bReset">Restore defaults</button>
@@ -640,7 +649,8 @@ function planeState(id, c) {
   return { kind: 'no', mark: '&#10007;', word: '', z: c.zImage };
 }
 
-const PLANE_COL = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };
+const PLANE_COL = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };      // on the dark figure
+const PLANE_UI  = { ok: 'var(--ok)', alt: 'var(--accent)', no: 'var(--bad)' };   // in the readout
 
 /* ----------------------------------------------------------------
    Polishing a thin-lens solution against the exact field matrices.
@@ -1973,17 +1983,17 @@ function syncView() {
 
 function drawReadout(r) {
   const row  = (k, v) => '<tr><td class="k">' + k + '</td><td class="v">' + v + '</td></tr>';
-  const dim  = (on, s) => on ? s : '<span style="color:#6b6b6b">' + s + '</span>';
+  const dim  = (on, s) => on ? s : '<span style="color:var(--m6)">' + s + '</span>';
   /** Magnification at a diffraction plane, and camera length at an image plane, are not small
    *  numbers -- they are not numbers at all (A = 0 and B = 0 there by definition). Printing the
    *  greyed "0.000x" reads as a broken value rather than an inapplicable one, so show a dash and
    *  keep the units out of it. */
-  const only = (on, s) => on ? s : '<span style="color:#6b6b6b" title="not defined at this kind of'
+  const only = (on, s) => on ? s : '<span style="color:var(--m6)" title="not defined at this kind of'
                               + ' plane">&mdash;</span>';
   const plane = (id, label) => {
     const st = planeState(id, r.chk[id]);
     const z  = isFinite(st.z) ? fmt(st.z) + ' mm' : '';
-    return row(label, '<span style="color:' + PLANE_COL[st.kind] + '">' + st.mark +
+    return row(label, '<span style="color:' + PLANE_UI[st.kind] + '">' + st.mark +
                       (st.word ? ' ' + st.word : '') + '</span> ' + z);
   };
   // A and B of the sample->plane transfer. A is the magnification and only means that at an
@@ -2002,18 +2012,18 @@ function drawReadout(r) {
       plane('SMP', 'sample ' + fmt(Z_SMP, Number.isInteger(Z_SMP) ? 0 : 2)) +
       plane('EAP', 'EELS aperture ' + EC.Z_EAP) +
       plane('EFP', 'EELS focal ' + EC.Z_EFP) +
-      row('reference plane', fmt(Z_REF, 3) + ' mm <span style="color:#6b6b6b" title="where the strongest objective focuses a parallel beam: a few um above the centre of its field">(field centre ' + EC.Z_OL + ')</span>')) +
+      row('reference plane', fmt(Z_REF, 3) + ' mm <span style="color:var(--m6)" title="where the strongest objective focuses a parallel beam: a few um above the centre of its field">(field centre ' + EC.Z_OL + ')</span>')) +
     group('Conjugates',
       row('sample images',      list(r.imagePlanes, 'ac')) +
       row('diffraction planes', list(r.diffPlanes, 'dp')) +
       row('illum. crossovers',  list(r.crossovers, ''))) +
     group('Beam',
-      row('VOA radius',          '<span style="color:#6b6b6b">' + fmtLen(state.voaR) + ' fixed</span>') +
+      row('VOA radius',          '<span style="color:var(--m6)">' + fmtLen(state.voaR) + ' fixed</span>') +
       row('HT, wavelength &lambda;', state.kV + ' kV, ' + (WaveImages.wavelengthNm(state.kV) * 1e3).toFixed(3) + ' pm') +
       row('convergence &alpha;', fmt(r.alpha * 1000, 2) + ' mrad') +
-      row('beam at sample',      r.collimated ? fmtLen(beamRadius(r, Z_SMP)) + ' <span style="color:#6b6b6b">parallel</span>'
+      row('beam at sample',      r.collimated ? fmtLen(beamRadius(r, Z_SMP)) + ' <span style="color:var(--m6)">parallel</span>'
                                               : fmtLen(beamRadius(r, Z_SMP))) +
-      row('probe defocus',       r.collimated ? '<span style="color:#6b6b6b">--</span>'
+      row('probe defocus',       r.collimated ? '<span style="color:var(--m6)">--</span>'
                                               : fmt(r.defocus, 2) + ' mm')) +
     group('Coupling',
       row('Mag @EELS ap.',           only(r.chk.EAP.image, fmt(r.magEAP, 3) + '&times;')) +
@@ -2021,9 +2031,9 @@ function drawReadout(r) {
       row('Mag @EELS focal',         only(r.chk.EFP.image, fmt(r.magEFP, 3) + '&times;')) +
       row('cam. length @EELS focal', only(r.chk.EFP.diff,  fmt(r.camEFP, 2) + ' mm')) +
       row('Larmor rotation, sample&rarr;ap.',
-          fmt(((r.rotEAP * 180 / Math.PI) % 360 + 360) % 360, 0) + '&deg; <span style="color:#6b6b6b" title="all lenses taken with the same polarity">same polarity</span>') +
+          fmt(((r.rotEAP * 180 / Math.PI) % 360 + 360) % 360, 0) + '&deg; <span style="color:var(--m6)" title="all lenses taken with the same polarity">same polarity</span>') +
       row('&plusmn;1 Bragg spacing @ap.',
-          fmtLen(r.braggSep) + ' <span style="color:#6b6b6b">at &theta;<sub>B</sub> = '
+          fmtLen(r.braggSep) + ' <span style="color:var(--m6)">at &theta;<sub>B</sub> = '
           + fmt(state.thetaB, 1) + ' mrad</span>'));
 
   const bad = [];
@@ -2065,13 +2075,13 @@ function refresh() {
   el$('legend').innerHTML =
     '<span style="color:var(--accent)">&#9644;</span> illumination crossover &nbsp; ' +
     '<span style="color:var(--diff)">&#9644;</span> diffraction plane &nbsp; ' +
-    '<span style="color:#a0bee6">&#9553;</span> lens (dashed = 1/f is 0) &nbsp; ' +
-    '<span style="color:#cfcfcf">&#9553;</span> aperture &nbsp; ' +
+    '<span style="color:var(--lens-col)">&#9553;</span> lens (dashed = 1/f is 0) &nbsp; ' +
+    '<span style="color:var(--ap-col)">&#9553;</span> aperture &nbsp; ' +
     '<span style="color:var(--ok)">&#9553;</span> named plane &nbsp; ' +
-    '<span style="color:#6f6f6f">0.80 mm</span> = beam radius there' +
+    '<span style="color:var(--lbl-col)">0.80 mm</span> = beam radius there' +
     (state.showDiff
-      ? ' &nbsp; <span style="color:#ffb74d">&#9585;</span> Bragg +1 &nbsp; ' +
-        '<span style="color:#ce93d8">&#9585;</span> Bragg &minus;1'
+      ? ' &nbsp; <span style="color:var(--diff)">&#9585;</span> Bragg +1 &nbsp; ' +
+        '<span style="color:var(--vio)">&#9585;</span> Bragg &minus;1'
       : '');
   return r;
 }
@@ -2696,7 +2706,7 @@ function renderWave() {
     (p.lambda * 1e3).toFixed(3) + ' pm at ' + p.kV + ' kV' + bragg;
   const ck = analyse().chk;
   if (planeState('EAP', ck.EAP).kind !== 'ok' || planeState('EFP', ck.EFP).kind !== 'ok')
-    el$('wmore').innerHTML += '<br><b style="color:#ffb74d">The EELS planes are not matched for ' +
+    el$('wmore').innerHTML += '<br><b style="color:var(--diff)">The EELS planes are not matched for ' +
       (state.coupling === 'diff' ? 'diffraction' : 'image') + '-coupling: the aperture is ' +
       (ck.EAP.diff ? 'a diffraction plane' : ck.EAP.image ? 'an image plane' : 'neither') + '. Press Solve.</b>';
 }
@@ -2786,6 +2796,31 @@ function syncWaveInputs() {
                    X, Y, get W() { return W; }, get H() { return H; } };
   new ResizeObserver(() => { resize(); refresh(); }).observe(stage);
   window.addEventListener('resize', () => { resize(); refresh(); });
+})();
+</script>
+<script>
+/* dark / light switch: saved under one key, shared by every page on seankung.ca */
+(function () {
+  var root = document.documentElement, btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  function cur() { return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+  function paint() {
+    var light = cur() === 'light';
+    btn.textContent = light ? '\u263E' : '\u2600';
+    btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+    btn.setAttribute('aria-label', btn.title);
+  }
+  function set(t, save) {
+    root.setAttribute('data-theme', t);
+    if (save) try { localStorage.setItem('seankung-theme', t); } catch (e) { /* private mode: the choice just is not remembered */ }
+    paint();
+    window.dispatchEvent(new Event('themechange'));
+  }
+  btn.addEventListener('click', function () { set(cur() === 'light' ? 'dark' : 'light', true); });
+  window.addEventListener('storage', function (e) {          // another tab changed it
+    if (e.key === 'seankung-theme' && (e.newValue === 'light' || e.newValue === 'dark') && e.newValue !== cur()) set(e.newValue, false);
+  });
+  paint();
 })();
 </script>
 </body>
