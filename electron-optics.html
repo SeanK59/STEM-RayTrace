@@ -138,7 +138,7 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
 .imgp h3{display:flex;align-items:center;gap:8px;justify-content:space-between;min-height:22px;margin:0 0 8px;
          font-size:12px;text-transform:uppercase;letter-spacing:.9px;color:var(--accent);font-weight:600}
 .imgp h3 select{text-transform:none;letter-spacing:0}
-.imgp canvas{display:block;width:100%;aspect-ratio:1/1;background:#000;border-radius:3px}
+.imgp canvas{display:block;width:100%;aspect-ratio:1/1;background:var(--stage);border:1px solid var(--line);border-radius:3px}
 .cap{color:var(--muted3);font-size:11.5px;margin-top:6px;min-height:34px;font-variant-numeric:tabular-nums}
 .ab{display:grid;grid-template-columns:44px 1fr 1fr;gap:5px 6px;align-items:center;font-size:12px}
 .ab .h{color:var(--muted2);font-size:10.5px;text-align:center;letter-spacing:.3px}
@@ -156,7 +156,12 @@ details.panel[open] > summary{margin-bottom:10px}
 :root{color-scheme:dark}
 :root{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333;--ok:#a5d6a7;--bad:#ef9a9a;--diff:#ffb74d;--muted2:#7c7c7c;--in-bg:#151515;--btn-bg:#252525;--btn-active:#2e2e2e;--seg-bg:#191919;--on-bg:#2a3a38;--code-bg:#1c1c1c;--pan-bg:#161616;--muted3:#8a8a8a;--m3:#555;--vio:#ce93d8;--m6:#6b6b6b;--lens-col:#a0bee6;--ap-col:#cfcfcf;--lbl-col:#6f6f6f}
 :root[data-theme="light"]{color-scheme:light;--bg:#f4f6f7;--panel:#ffffff;--accent:#00796b;--fg:#1b1f23;--dim:#66727d;--line:#d0d5da;--ok:#1a7f37;--bad:#cf222e;--diff:#bc4c00;--muted2:#6a737c;--in-bg:#ffffff;--btn-bg:#eef1f3;--btn-active:#e2e6e9;--seg-bg:#eef1f3;--on-bg:#d8efec;--code-bg:#e8ecef;--pan-bg:#e6eaed;--muted3:#66727d;--m3:#9aa3ab;--vio:#8250df;--m6:#8b949e;--lens-col:#3f6fb0;--ap-col:#6b747d;--lbl-col:#8b949e}
-.stage{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333;--ok:#a5d6a7;--bad:#ef9a9a;--diff:#ffb74d;--muted2:#7c7c7c;--in-bg:#151515;--btn-bg:#252525;--btn-active:#2e2e2e;--seg-bg:#191919;--on-bg:#2a3a38;--code-bg:#1c1c1c;--pan-bg:#161616;--muted3:#8a8a8a;--m3:#555}
+:root[data-theme="light"]{--stage:#ffffff}
+:root[data-theme="light"] #imgbtns button{background:rgba(255,255,255,.85);border-color:#c3c9cf;color:#66727d}
+:root[data-theme="light"] #imgbtns button:hover{color:var(--accent);border-color:var(--accent);background:rgba(255,255,255,.98)}
+:root[data-theme="light"] #zoomctl{border-right-color:#d0d5da}
+:root[data-theme="light"] #zoomctl output{color:#66727d}
+:root[data-theme="light"] .lensctl.off input[type=number]{color:#9aa3ab}
 .theme-toggle{position:absolute;top:10px;right:14px;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;font-size:16px;line-height:1;z-index:50}
 .theme-toggle:hover{border-color:var(--accent)}
 .home-link{padding-right:46px}   /* keep the nav line clear of the theme button */
@@ -649,7 +654,21 @@ function planeState(id, c) {
   return { kind: 'no', mark: '&#10007;', word: '', z: c.zImage };
 }
 
-const PLANE_COL = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };      // on the dark figure
+/* The figure follows the page theme: these are the colours of everything drawn on it. */
+const isLightTheme = () => document.documentElement.getAttribute('data-theme') === 'light';
+const stageColor = () => getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
+const PAL_DARK = {axis: '#3a3a3a', markDiff: 'rgba(255,183,77,.55)', markImg: 'rgba(128,203,196,.55)', braggP: 'rgba(255,183,77,.38)',
+  braggM: 'rgba(206,147,216,.38)', lensOn: 'rgba(160,190,230,.85)', leader: 'rgba(255,255,255,.10)', aperture: '#cfcfcf',
+  tick: 'rgba(200,200,200,.35)', lblSrc: '#8f8f8f', lblLens: '#a0bee6', lensFill: 'rgba(160,190,230,.10)',
+  lensDim: 'rgba(160,190,230,.30)', ray: 'rgba(128,204,196,0.9)'};
+const PAL_LIGHT = {axis: '#c9cfd5', markDiff: 'rgba(188,76,0,.6)', markImg: 'rgba(0,121,107,.6)', braggP: 'rgba(188,76,0,.5)',
+  braggM: 'rgba(130,80,223,.5)', lensOn: 'rgba(47,98,168,.9)', leader: 'rgba(0,0,0,.12)', aperture: '#5b636b',
+  tick: 'rgba(80,80,80,.4)', lblSrc: '#6b747c', lblLens: '#2f62a8', lensFill: 'rgba(47,98,168,.10)',
+  lensDim: 'rgba(47,98,168,.35)', ray: 'rgba(0,121,107,.9)'};
+const PAL = () => isLightTheme() ? PAL_LIGHT : PAL_DARK;
+const PLANE_COL_DARK  = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };      // on the figure
+const PLANE_COL_LIGHT = { ok: '#1a7f37', alt: '#00796b', no: '#cf222e' };
+const PLANE_COL = () => isLightTheme() ? PLANE_COL_LIGHT : PLANE_COL_DARK;
 const PLANE_UI  = { ok: 'var(--ok)', alt: 'var(--accent)', no: 'var(--bad)' };   // in the readout
 
 /* ----------------------------------------------------------------
@@ -1443,10 +1462,10 @@ function redrawView() {
 function drawRays(r) {
   const g = cvRays.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = '#0b0b0b'; g.fillRect(0, 0, W, H);
+  g.fillStyle = stageColor(); g.fillRect(0, 0, W, H);
   const n = state.nRays, umax = r.u0max * 1.25, zs = r.a.z, ys = r.a.y, zV = EC.Z_VOA;
   g.lineWidth = Math.max(1, 0.9 * dpr); g.lineJoin = 'round';
-  g.strokeStyle = 'rgba(128,204,196,0.9)';
+  g.strokeStyle = PAL().ray;
   for (let i = 0; i < n; i++) {
     const t = n === 1 ? 0 : (2 * i / (n - 1) - 1), s = umax * t;
     const blocked = Math.abs(s) > r.u0max * (1 + 1e-9);
@@ -1484,7 +1503,7 @@ function drawOverlay(r) {
   const hi = Math.min(Math.max(beamPx * 1.30, HALF * 0.30), HALF * 0.94);
 
   // optical axis
-  g.strokeStyle = '#3a3a3a'; g.lineWidth = 1 * S; g.setLineDash([6 * S, 5 * S]);
+  g.strokeStyle = PAL().axis; g.lineWidth = 1 * S; g.setLineDash([6 * S, 5 * S]);
   g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke(); g.setLineDash([]);
 
   // conjugate-plane markers
@@ -1497,16 +1516,16 @@ function drawOverlay(r) {
       }
       g.setLineDash([]);
     };
-    mark(r.diffPlanes,  'rgba(255,183,77,.55)');
-    mark(r.imagePlanes, 'rgba(128,204,196,.55)');   // sample-conjugate, valid in both regimes
+    mark(r.diffPlanes,  PAL().markDiff);
+    mark(r.imagePlanes, PAL().markImg);   // sample-conjugate, valid in both regimes
   }
 
   // Bragg cones (construction)
   if (state.showDiff) {
     g.lineWidth = 1 * S;
     for (const c of coneTraces(r)) {
-      g.strokeStyle = c.m > 0 ? 'rgba(255,183,77,.38)'    // +1 amber
-                              : 'rgba(206,147,216,.38)';  // -1 violet
+      g.strokeStyle = c.m > 0 ? PAL().braggP    // +1 amber
+                              : PAL().braggM;  // -1 violet
       g.beginPath();
       c.t.nodes.forEach((p, i) => i ? g.lineTo(X(p.z), Y(p.y)) : g.moveTo(X(p.z), Y(p.y)));
       g.stroke();
@@ -1534,34 +1553,34 @@ function drawOverlay(r) {
         pts.forEach((p, j) => j ? g.lineTo(p[0], mid - p[1]) : g.moveTo(p[0], mid - p[1]));
         for (let j = pts.length - 1; j >= 0; j--) g.lineTo(pts[j][0], mid + pts[j][1]);
         g.closePath();
-        g.fillStyle = 'rgba(160,190,230,.10)'; g.fill();
-        g.strokeStyle = 'rgba(160,190,230,.85)'; g.lineWidth = 1.6 * S; g.stroke();
+        g.fillStyle = PAL().lensFill; g.fill();
+        g.strokeStyle = PAL().lensOn; g.lineWidth = 1.6 * S; g.stroke();
       }
       if (x > -24 * S && x < W + 24 * S) {
-        g.strokeStyle = on ? 'rgba(160,190,230,.30)' : 'rgba(120,120,120,.35)';
+        g.strokeStyle = on ? PAL().lensDim : 'rgba(120,120,120,.35)';
         g.lineWidth = (on ? 1 : 1.2) * S;
         g.setLineDash(on ? [] : [4 * S, 4 * S]);
         g.beginPath(); g.moveTo(x, mid - hi); g.lineTo(x, mid + hi); g.stroke();
         g.setLineDash([]);
-        g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1 * S;   // leader up to its slider
+        g.strokeStyle = PAL().leader; g.lineWidth = 1 * S;   // leader up to its slider
         g.beginPath(); g.moveTo(x, TOPBAND); g.lineTo(x, mid - hi); g.stroke();
       }
     } else if (x < -24 * S || x > W + 24 * S) {
       continue;                                     // off the zoomed window
     } else if (el.kind === 'aperture') {
       const rs = state.K * state.voaR * sy;
-      g.strokeStyle = '#cfcfcf'; g.lineWidth = 4 * S; g.lineCap = 'butt';
+      g.strokeStyle = PAL().aperture; g.lineWidth = 4 * S; g.lineCap = 'butt';
       g.beginPath(); g.moveTo(x, mid - hi * 1.05); g.lineTo(x, mid - rs); g.stroke();
       g.beginPath(); g.moveTo(x, mid + hi * 1.05); g.lineTo(x, mid + rs); g.stroke();
     } else if (el.kind === 'plane') {
-      g.strokeStyle = PLANE_COL[planeState(el.id, r.chk[el.id]).kind];
+      g.strokeStyle = PLANE_COL()[planeState(el.id, r.chk[el.id]).kind];
       g.lineWidth = 1.4 * S; g.setLineDash([2 * S, 3 * S]);
       g.beginPath(); g.moveTo(x, mid - hi * 1.20); g.lineTo(x, mid + hi * 1.20); g.stroke();
       g.setLineDash([]);
     }
     // axis tick, so the position is unambiguous however short the glyph is
     if (el.kind !== 'source' && x > -24 * S && x < W + 24 * S) {
-      g.strokeStyle = 'rgba(200,200,200,.35)'; g.lineWidth = 1 * S;
+      g.strokeStyle = PAL().tick; g.lineWidth = 1 * S;
       g.beginPath(); g.moveTo(x, mid - 3 * S); g.lineTo(x, mid + 3 * S); g.stroke();
     }
   }
@@ -1584,10 +1603,10 @@ function drawOverlay(r) {
     rowRight[row] = it.x + it.w / 2;
     const el = it.e;
     g.fillStyle = el.kind === 'plane'
-      ? PLANE_COL[planeState(el.id, r.chk[el.id]).kind]
-      : el.kind === 'aperture' ? '#cfcfcf'
-      : el.kind === 'source'   ? '#8f8f8f'
-      : (physPowerOf(el.id) > 0 ? '#a0bee6' : '#6b6b6b');
+      ? PLANE_COL()[planeState(el.id, r.chk[el.id]).kind]
+      : el.kind === 'aperture' ? PAL().aperture
+      : el.kind === 'source'   ? PAL().lblSrc
+      : (physPowerOf(el.id) > 0 ? PAL().lblLens : '#6b6b6b');
     const ty = H - BAND + 3 * S + row * LBL_PITCH * S;
     const tx = Math.min(Math.max(it.x, it.w / 2 + 2 * S), W - it.w / 2 - 2 * S);
     LABEL_POS[el.id] = { x: it.x / dpr, row: row,
@@ -1599,7 +1618,7 @@ function drawOverlay(r) {
     g.fillStyle = '#6f6f6f';
     g.fillText(it.size, tx, ty + LBL_SIZE_DY * S);
     // leader from the label up to the glyph
-    g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1 * S;
+    g.strokeStyle = PAL().leader; g.lineWidth = 1 * S;
     g.beginPath(); g.moveTo(it.x, mid + hi * 1.22); g.lineTo(it.x, ty - 1 * S); g.stroke();
   }
 }
@@ -1846,7 +1865,7 @@ function composite() {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  g.fillStyle = '#0b0b0b'; g.fillRect(0, 0, W, H);
+  g.fillStyle = stageColor(); g.fillRect(0, 0, W, H);
   g.drawImage(cvRays, 0, 0);
   g.drawImage(cvOvl,  0, 0);
   return c;
@@ -2551,7 +2570,8 @@ function selftest() {
     chk('... it is the central 15 mm to within a pixel (mm)', W2, 15, 2 * du);
     chk('... and it is drawn on at least 512 canvas pixels, so the scale bar stays sharp', el$('wv2').width >= 512 ? 1 : 0, 1, 0);
     { const cv = el$('wv2'), px = cv.getContext('2d').getImageData(cv.width / 2, cv.height / 2, 1, 1).data;
-      chk('... and the cropped picture is really drawn (the centre of the unscattered disc is bright)', px[0] > 100 ? 1 : 0, 1, 0); }
+      chk('... and the cropped picture is really drawn (the centre of the unscattered disc differs from the ground)',
+          (isLightTheme() ? px[0] < 100 : px[0] > 100) ? 1 : 0, 1, 0); }
     restore(); refresh(); renderWave();
   }
 
@@ -2620,12 +2640,12 @@ function renderWave() {
   const M1 = canvasPx(el$('wv1'), N);
   // specimen plane
   const g1 = wave.show1 === 'phase' && r.phase
-    ? WV.paint(el$('wv1'), r.phase, N, { signed: true, cmap: 'gray', size: M1 })
-    : WV.paint(el$('wv1'), r.I1, N, { log: wave.log1, dyn: wave.dyn, cmap: wave.cmap, size: M1 });
-  WV.scaleBar(g1, M1, r.g.dx * 1e-6 * N / M1);
+    ? WV.paint(el$('wv1'), r.phase, N, { signed: true, cmap: 'gray', size: M1, light: isLightTheme() })
+    : WV.paint(el$('wv1'), r.I1, N, { log: wave.log1, dyn: wave.dyn, cmap: wave.cmap, size: M1, light: isLightTheme() });
+  WV.scaleBar(g1, M1, r.g.dx * 1e-6 * N / M1, isLightTheme());
   if (r.outOfWindow) {
-    g1.fillStyle = 'rgba(0,0,0,.72)'; g1.fillRect(0, 0, M1, M1);
-    g1.fillStyle = '#ef9a9a'; g1.font = (15 * M1 / 512) + 'px ui-monospace,Consolas,monospace';
+    g1.fillStyle = isLightTheme() ? 'rgba(255,255,255,.78)' : 'rgba(0,0,0,.72)'; g1.fillRect(0, 0, M1, M1);
+    g1.fillStyle = (isLightTheme() ? '#cf222e' : '#ef9a9a'); g1.font = (15 * M1 / 512) + 'px ui-monospace,Consolas,monospace';
     g1.textAlign = 'center';
     g1.fillText('probe larger than the window', M1 / 2, M1 / 2 - 10 * M1 / 512);
     g1.fillText('(see caption)', M1 / 2, M1 / 2 + 14 * M1 / 512);
@@ -2658,11 +2678,11 @@ function renderWave() {
   // the picture is drawn at the canvas's on-screen resolution (at least 512), so the scale bar, text and overlay are sharp
   // however few computed pixels the 15 mm crop leaves at a long camera length
   const M2 = canvasPx(el$('wv2'), 512), kZ = M2 / N2;
-  const g2 = WV.paint(el$('wv2'), I2, N2, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot, size: M2 });
-  WV.scaleBar(g2, M2, o.du / kZ);
+  const g2 = WV.paint(el$('wv2'), I2, N2, { log: wave.log2, dyn: wave.dyn, cmap: wave.cmap, flip: o.flip, rot: p.rot, size: M2, light: isLightTheme() });
+  WV.scaleBar(g2, M2, o.du / kZ, isLightTheme());
   if (r.outOfWindow) {                      // the specimen wave did not fit the grid, so this plane is aliased, not physics
-    g2.fillStyle = 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, M2, M2);
-    g2.fillStyle = '#ef9a9a'; g2.font = (15 * M2 / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
+    g2.fillStyle = isLightTheme() ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.6)'; g2.fillRect(0, 0, M2, M2);
+    g2.fillStyle = (isLightTheme() ? '#cf222e' : '#ef9a9a'); g2.font = (15 * M2 / 512) + 'px ui-monospace,Consolas,monospace'; g2.textAlign = 'center';
     g2.fillText('not reliable: probe larger than', M2 / 2, M2 / 2 - 10 * M2 / 512);
     g2.fillText('the specimen window (see left)', M2 / 2, M2 / 2 + 14 * M2 / 512);
   }
@@ -2676,11 +2696,11 @@ function renderWave() {
     g2.save(); g2.translate(c, c); g2.rotate(-p.rot);            // the overlay turns with the picture
     g2.setLineDash([5 * M2 / 512, 5 * M2 / 512]); g2.lineWidth = 1.2 * M2 / 512;
     if (!p.collimated) {
-      g2.strokeStyle = 'rgba(128,203,196,.8)';
+      g2.strokeStyle = isLightTheme() ? '#00796b' : 'rgba(128,203,196,.8)';
       g2.beginPath(); g2.arc(0, 0, px(edge), 0, 2 * Math.PI); g2.stroke();
     }
     if (isFinite(theta) && o.branch === 'fourier') {
-      g2.strokeStyle = 'rgba(255,183,77,.85)';
+      g2.strokeStyle = isLightTheme() ? '#bc4c00' : 'rgba(255,183,77,.85)';
       const rr = 6 * M2 / 512, sgn = o.flip ? -1 : 1;
       for (const [sx_, sy_] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const x = sx_ * px(L * theta), y = -sy_ * px(L * theta);
@@ -2777,6 +2797,8 @@ function syncWaveInputs() {
 /* ================================================================
    8.  Boot
    ================================================================ */
+window.addEventListener('themechange', () => { refresh(); });
+
 (async () => {
   buildControls();
   buildWaveControls(); syncWaveInputs();

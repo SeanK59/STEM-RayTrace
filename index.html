@@ -136,7 +136,12 @@ td.v{text-align:right;font-family:ui-monospace,Consolas,monospace;font-variant-n
 :root{color-scheme:dark}
 :root{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333;--ok:#a5d6a7;--bad:#ef9a9a;--diff:#ffb74d;--muted2:#7c7c7c;--in-bg:#151515;--btn-bg:#252525;--btn-active:#2e2e2e;--seg-bg:#191919;--on-bg:#2a3a38;--code-bg:#1c1c1c;--pan-bg:#161616;--muted3:#8a8a8a;--m3:#555;--vio:#ce93d8;--m6:#6b6b6b;--lens-col:#a0bee6;--ap-col:#cfcfcf;--lbl-col:#6f6f6f}
 :root[data-theme="light"]{color-scheme:light;--bg:#f4f6f7;--panel:#ffffff;--accent:#00796b;--fg:#1b1f23;--dim:#66727d;--line:#d0d5da;--ok:#1a7f37;--bad:#cf222e;--diff:#bc4c00;--muted2:#6a737c;--in-bg:#ffffff;--btn-bg:#eef1f3;--btn-active:#e2e6e9;--seg-bg:#eef1f3;--on-bg:#d8efec;--code-bg:#e8ecef;--pan-bg:#e6eaed;--muted3:#66727d;--m3:#9aa3ab;--vio:#8250df;--m6:#8b949e;--lens-col:#3f6fb0;--ap-col:#6b747d;--lbl-col:#8b949e}
-.stage{--bg:#121212;--panel:#1e1e1e;--accent:#80cbc4;--fg:#e0e0e0;--dim:#9e9e9e;--line:#333;--ok:#a5d6a7;--bad:#ef9a9a;--diff:#ffb74d;--muted2:#7c7c7c;--in-bg:#151515;--btn-bg:#252525;--btn-active:#2e2e2e;--seg-bg:#191919;--on-bg:#2a3a38;--code-bg:#1c1c1c;--pan-bg:#161616;--muted3:#8a8a8a;--m3:#555}
+:root[data-theme="light"]{--stage:#ffffff}
+:root[data-theme="light"] #imgbtns button{background:rgba(255,255,255,.85);border-color:#c3c9cf;color:#66727d}
+:root[data-theme="light"] #imgbtns button:hover{color:var(--accent);border-color:var(--accent);background:rgba(255,255,255,.98)}
+:root[data-theme="light"] #zoomctl{border-right-color:#d0d5da}
+:root[data-theme="light"] #zoomctl output{color:#66727d}
+:root[data-theme="light"] .lensctl.off input[type=number]{color:#9aa3ab}
 .theme-toggle{position:absolute;top:10px;right:14px;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;font-size:16px;line-height:1;z-index:50}
 .theme-toggle:hover{border-color:var(--accent)}
 .home-link{padding-right:46px}   /* keep the nav line clear of the theme button */
@@ -505,7 +510,21 @@ function planeState(id, c) {
   return { kind: 'no', mark: '&#10007;', word: '', z: c.zImage };
 }
 
-const PLANE_COL = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };      // on the dark figure
+/* The figure follows the page theme: these are the colours of everything drawn on it. */
+const isLightTheme = () => document.documentElement.getAttribute('data-theme') === 'light';
+const stageColor = () => getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
+const PAL_DARK = {axis: '#3a3a3a', markDiff: 'rgba(255,183,77,.55)', markImg: 'rgba(128,203,196,.55)', braggP: 'rgba(255,183,77,.38)',
+  braggM: 'rgba(206,147,216,.38)', lensOn: 'rgba(160,190,230,.85)', leader: 'rgba(255,255,255,.10)', aperture: '#cfcfcf',
+  tick: 'rgba(200,200,200,.35)', lblSrc: '#8f8f8f', lblLens: '#a0bee6', lensFill: 'rgba(160,190,230,.10)',
+  lensDim: 'rgba(160,190,230,.30)', ray: 'rgba(128,204,196,0.9)'};
+const PAL_LIGHT = {axis: '#c9cfd5', markDiff: 'rgba(188,76,0,.6)', markImg: 'rgba(0,121,107,.6)', braggP: 'rgba(188,76,0,.5)',
+  braggM: 'rgba(130,80,223,.5)', lensOn: 'rgba(47,98,168,.9)', leader: 'rgba(0,0,0,.12)', aperture: '#5b636b',
+  tick: 'rgba(80,80,80,.4)', lblSrc: '#6b747c', lblLens: '#2f62a8', lensFill: 'rgba(47,98,168,.10)',
+  lensDim: 'rgba(47,98,168,.35)', ray: 'rgba(0,121,107,.9)'};
+const PAL = () => isLightTheme() ? PAL_LIGHT : PAL_DARK;
+const PLANE_COL_DARK  = { ok: '#a5d6a7', alt: '#80cbc4', no: '#ef9a9a' };      // on the figure
+const PLANE_COL_LIGHT = { ok: '#1a7f37', alt: '#00796b', no: '#cf222e' };
+const PLANE_COL = () => isLightTheme() ? PLANE_COL_LIGHT : PLANE_COL_DARK;
 const PLANE_UI  = { ok: 'var(--ok)', alt: 'var(--accent)', no: 'var(--bad)' };   // in the readout
 
 /* ================================================================
@@ -1124,13 +1143,19 @@ function buildScene() {
     scene.loadJSON(json, () => {
       const j = junk.getContext('2d');
       sim = new RO.Simulator(scene, cvRays.getContext('2d'), j, j, j, j, false, Infinity);
-      try {
-        scene.theme.ray.color        = { r:0.50,  g:0.80,  b:0.77,  a:1 };
-        scene.theme.background.color = { r:0.043, g:0.043, b:0.043, a:1 };
-      } catch (e) { /* theme shape differs between versions; harmless */ }
+      applyRayTheme();
       res();
     });
   });
+}
+
+/** Ray colour and ground for the ray-optics engine, from the page theme. */
+function applyRayTheme() {
+  try {
+    const light = isLightTheme();
+    scene.theme.ray.color        = light ? { r:0, g:0.475, b:0.42, a:1 } : { r:0.50,  g:0.80,  b:0.77,  a:1 };
+    scene.theme.background.color = light ? { r:1, g:1, b:1, a:1 } : { r:0.043, g:0.043, b:0.043, a:1 };
+  } catch (e) { /* theme shape differs between versions; harmless */ }
 }
 
 function resize() {
@@ -1237,7 +1262,7 @@ function drawOverlay(r) {
   const hi = Math.min(Math.max(beamPx * 1.30, HALF * 0.30), HALF * 0.94);
 
   // optical axis
-  g.strokeStyle = '#3a3a3a'; g.lineWidth = 1 * S; g.setLineDash([6 * S, 5 * S]);
+  g.strokeStyle = PAL().axis; g.lineWidth = 1 * S; g.setLineDash([6 * S, 5 * S]);
   g.beginPath(); g.moveTo(0, mid); g.lineTo(W, mid); g.stroke(); g.setLineDash([]);
 
   // conjugate-plane markers
@@ -1250,16 +1275,16 @@ function drawOverlay(r) {
       }
       g.setLineDash([]);
     };
-    mark(r.diffPlanes,  'rgba(255,183,77,.55)');
-    mark(r.imagePlanes, 'rgba(128,203,196,.55)');   // sample-conjugate, valid in both regimes
+    mark(r.diffPlanes,  PAL().markDiff);
+    mark(r.imagePlanes, PAL().markImg);   // sample-conjugate, valid in both regimes
   }
 
   // Bragg cones (construction, not traced by ray-optics)
   if (state.showDiff) {
     g.lineWidth = 1 * S;
     for (const c of coneTraces(r)) {
-      g.strokeStyle = c.m > 0 ? 'rgba(255,183,77,.38)'    // +1 amber
-                              : 'rgba(206,147,216,.38)';  // -1 violet
+      g.strokeStyle = c.m > 0 ? PAL().braggP    // +1 amber
+                              : PAL().braggM;  // -1 violet
       g.beginPath();
       c.t.nodes.forEach((p, i) => i ? g.lineTo(X(p.z), Y(p.y)) : g.moveTo(X(p.z), Y(p.y)));
       g.stroke();
@@ -1272,12 +1297,12 @@ function drawOverlay(r) {
     if (x < -24 * S || x > W + 24 * S) continue;     // off the zoomed window
     if (el.kind === 'lens') {
       const on = state.power[el.id] > 0;
-      g.strokeStyle = on ? 'rgba(160,190,230,.85)' : 'rgba(120,120,120,.35)';
+      g.strokeStyle = on ? PAL().lensOn : 'rgba(120,120,120,.35)';
       g.lineWidth = (on ? 2 : 1.2) * S;
       g.setLineDash(on ? [] : [4 * S, 4 * S]);
       g.beginPath(); g.moveTo(x, mid - hi); g.lineTo(x, mid + hi); g.stroke();
       g.setLineDash([]);
-      g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1 * S;   // leader up to its slider
+      g.strokeStyle = PAL().leader; g.lineWidth = 1 * S;   // leader up to its slider
       // The objective's two halves share one control stack, which sits at the specimen between them
       // and so, zoomed in, far from either lens line: each half gets its own leader from the stack.
       // At 1x the two coincide, so the second is skipped and the figure is unchanged.
@@ -1285,10 +1310,10 @@ function drawOverlay(r) {
       if (!(el.id === 'OL2' && Math.abs(x - lx) < 3 * S)) {
         g.beginPath(); g.moveTo(lx, TOPBAND); g.lineTo(x, mid - hi); g.stroke();
       }
-      g.strokeStyle = on ? 'rgba(160,190,230,.85)' : 'rgba(120,120,120,.35)';
+      g.strokeStyle = on ? PAL().lensOn : 'rgba(120,120,120,.35)';
       if (on) {                                     // converging-lens arrowheads
         const a = 6 * S;
-        g.fillStyle = 'rgba(160,190,230,.85)';
+        g.fillStyle = PAL().lensOn;
         for (const s of [-1, 1]) {
           g.beginPath();
           g.moveTo(x, mid + s * hi);
@@ -1299,18 +1324,18 @@ function drawOverlay(r) {
       }
     } else if (el.kind === 'aperture') {
       const rs = state.K * state.voaR * sy;
-      g.strokeStyle = '#cfcfcf'; g.lineWidth = 4 * S; g.lineCap = 'butt';
+      g.strokeStyle = PAL().aperture; g.lineWidth = 4 * S; g.lineCap = 'butt';
       g.beginPath(); g.moveTo(x, mid - hi * 1.05); g.lineTo(x, mid - rs); g.stroke();
       g.beginPath(); g.moveTo(x, mid + hi * 1.05); g.lineTo(x, mid + rs); g.stroke();
     } else if (el.kind === 'plane') {
-      g.strokeStyle = PLANE_COL[planeState(el.id, r.chk[el.id]).kind];
+      g.strokeStyle = PLANE_COL()[planeState(el.id, r.chk[el.id]).kind];
       g.lineWidth = 1.4 * S; g.setLineDash([2 * S, 3 * S]);
       g.beginPath(); g.moveTo(x, mid - hi * 1.20); g.lineTo(x, mid + hi * 1.20); g.stroke();
       g.setLineDash([]);
     }
     // axis tick, so the position is unambiguous however short the glyph is
     if (el.kind !== 'source') {
-      g.strokeStyle = 'rgba(200,200,200,.35)'; g.lineWidth = 1 * S;
+      g.strokeStyle = PAL().tick; g.lineWidth = 1 * S;
       g.beginPath(); g.moveTo(x, mid - 3 * S); g.lineTo(x, mid + 3 * S); g.stroke();
     }
   }
@@ -1333,10 +1358,10 @@ function drawOverlay(r) {
     rowRight[row] = it.x + it.w / 2;
     const el = it.e;
     g.fillStyle = el.kind === 'plane'
-      ? PLANE_COL[planeState(el.id, r.chk[el.id]).kind]
-      : el.kind === 'aperture' ? '#cfcfcf'
-      : el.kind === 'source'   ? '#8f8f8f'
-      : (state.power[el.id] > 0 ? '#a0bee6' : '#6b6b6b');
+      ? PLANE_COL()[planeState(el.id, r.chk[el.id]).kind]
+      : el.kind === 'aperture' ? PAL().aperture
+      : el.kind === 'source'   ? PAL().lblSrc
+      : (state.power[el.id] > 0 ? PAL().lblLens : '#6b6b6b');
     const ty = H - BAND + 3 * S + row * LBL_PITCH * S;
     const tx = Math.min(Math.max(it.x, it.w / 2 + 2 * S), W - it.w / 2 - 2 * S);
     LABEL_POS[el.id] = { x: it.x / dpr, row: row,
@@ -1348,7 +1373,7 @@ function drawOverlay(r) {
     g.fillStyle = '#6f6f6f';
     g.fillText(it.size, tx, ty + LBL_SIZE_DY * S);
     // leader from the label up to the glyph
-    g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 1 * S;
+    g.strokeStyle = PAL().leader; g.lineWidth = 1 * S;
     g.beginPath(); g.moveTo(it.x, mid + hi * 1.22); g.lineTo(it.x, ty - 1 * S); g.stroke();
   }
 }
@@ -1591,7 +1616,7 @@ function composite() {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  g.fillStyle = '#0b0b0b'; g.fillRect(0, 0, W, H);
+  g.fillStyle = stageColor(); g.fillRect(0, 0, W, H);
   g.drawImage(cvRays, 0, 0);
   g.drawImage(cvOvl,  0, 0);
   return c;
@@ -2395,6 +2420,8 @@ function selftest() {
 /* ================================================================
    8.  Boot
    ================================================================ */
+window.addEventListener('themechange', () => { applyRayTheme(); refresh(); });
+
 (async () => {
   buildControls();
   resize();

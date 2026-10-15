@@ -515,17 +515,18 @@ const WaveImages = (function () {
         if (opt.signed) t = mx > mn ? (v - mn) / (mx - mn) : 0.5;
         else if (opt.log) t = v > 0 && mx > 0 ? 1 + Math.log10(v / mx) / opt.dyn : 0;
         else t = mx > 0 ? v / mx : 0;
+        if (opt.light) t = 1 - t;                 // light theme: zero intensity is white
         const c = lut(opt.cmap, t), o = (i * N + j) * 4;
         img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
       }
     if (opt.rot || M !== N) {
       const tmp = document.createElement('canvas'); tmp.width = N; tmp.height = N;
       tmp.getContext('2d').putImageData(img, 0, 0);
-      g.fillStyle = '#000'; g.fillRect(0, 0, M, M);
+      g.fillStyle = opt.light ? '#fff' : '#000'; g.fillRect(0, 0, M, M);
       if (opt.rot) {
         // the turned square leaves corners nobody computed: hatch them so they cannot be mistaken for zero intensity
-        g.fillStyle = '#16161b'; g.fillRect(0, 0, M, M);
-        g.strokeStyle = '#2e2e38'; g.lineWidth = Math.max(1, M / 256);
+        g.fillStyle = opt.light ? '#e6eaed' : '#16161b'; g.fillRect(0, 0, M, M);
+        g.strokeStyle = opt.light ? '#d0d5da' : '#2e2e38'; g.lineWidth = Math.max(1, M / 256);
         for (let d = -M; d < M; d += Math.max(6, M / 42)) { g.beginPath(); g.moveTo(d, 0); g.lineTo(d + M, M); g.stroke(); }
       }
       g.save(); g.translate(M / 2, M / 2); g.rotate(-(opt.rot || 0));
@@ -550,10 +551,10 @@ const WaveImages = (function () {
     if (a >= 1e-6)   return +(mm * 1e6).toPrecision(4) + ' nm';
     return +(mm * 1e7).toPrecision(4) + ' Å';
   }
-  function scaleBar(g, N, pxMm) {
+  function scaleBar(g, N, pxMm, light) {
     const len = niceLen(N * pxMm / 4), w = len / pxMm, s = N / 512;
-    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(N - w - 26 * s, N - 34 * s, w + 18 * s, 26 * s);
-    g.fillStyle = '#fff'; g.fillRect(N - w - 17 * s, N - 16 * s, w, 3 * s);
+    g.fillStyle = light ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.55)'; g.fillRect(N - w - 26 * s, N - 34 * s, w + 18 * s, 26 * s);
+    g.fillStyle = light ? '#1b1f23' : '#fff'; g.fillRect(N - w - 17 * s, N - 16 * s, w, 3 * s);
     g.font = (12 * s) + 'px ui-monospace,Consolas,monospace'; g.textAlign = 'center';
     g.fillText(fmtLen(len), N - w / 2 - 17 * s, N - 20 * s);
   }
